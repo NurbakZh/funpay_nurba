@@ -3,12 +3,71 @@ from bs4 import BeautifulSoup
 import cloudscraper
 from googletrans import Translator
 
+def get_select_items(node_id):
+    url = f"https://funpay.com/lots/offerEdit?node={node_id}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch the webpage: {response.status_code}")
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    def get_select_options(label_text):
+        label = soup.find('label', class_='control-label', string=label_text)
+        if not label:
+            raise Exception(f"Label with text '{label_text}' not found")
+        
+        select = label.find_next('select')
+        if not select:
+            raise Exception(f"Select element for label '{label_text}' not found")
+        
+        options = [
+            {"value": option.get('value'), "text": option.text.strip()}
+            for option in select.find_all('option') if option.text.strip()
+        ]
+        return options
+
+    game_options = get_select_options("Игра")
+    platform_options = get_select_options("Платформа")
+
+    return {
+        "game_options": game_options,
+        "platform_options": platform_options
+    }
+
+def get_promo_game_link(game_title):
+    url = "https://funpay.com/"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch the webpage: {response.status_code}")
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    game_element = soup.find('div', class_='game-title', string=game_title)
+    
+    if not game_element:
+        raise Exception(f"Game title '{game_title}' not found")
+
+    promo_game_item = game_element.find_parent('div', class_='promo-game-item')
+    if not promo_game_item:
+        raise Exception(f"Promo game item for '{game_title}' not found")
+
+    li_element = promo_game_item.find('li', string=lambda s: s and "Ключи" in s)
+    if not li_element:
+        raise Exception(f"List item with 'Ключи' not found")
+
+    a_element = li_element.find('a', href=True)
+    if not a_element:
+        raise Exception(f"Link with 'Ключи' not found")
+
+    href = a_element['href']
+    id_after_lots = href.split('/lots/')[-1].split('/')[0]
+    return id_after_lots
+
 def translate_text(text, dest_language):
     translator = Translator()
     translation = translator.translate(text, dest=dest_language)
     return translation.text
     
-def parse_steam_search(query):
+def parse_steam_search(query, countryCode):
     url = f"https://store.steampowered.com/search/?term={query.replace(' ', '+')}"
     response = requests.get(url)
     if response.status_code != 200:
@@ -24,7 +83,7 @@ def parse_steam_search(query):
             href = first_a_tag.get('href')
             appid = first_a_tag.get('data-ds-appid')
             # Modify the URL to append ?cc=ua
-            href = href.split('/?')[0] + '?cc=ua'
+            href = href.split('/?')[0] + f"?cc={countryCode}"
             return href
         else:
             print("No <a> tag found in the search result container.")
@@ -51,8 +110,6 @@ def parse_steam_app_page(url):
 
     soup = BeautifulSoup(response.text, 'html.parser')
     app_name = soup.find('div', class_='apphub_AppName').text
-    app_description = soup.find('div', class_='game_description_snippet').text.strip()
-    developer = soup.find('div', id='developers_list').find('a').text
 
     purchase_game_wrapper = soup.find('div', class_='game_area_purchase_game_wrapper')
     price = 'N/A'
@@ -64,13 +121,12 @@ def parse_steam_app_page(url):
 
     return {
         'название': app_name,
-        'описание': app_description,
         'цена в гривнах': price
     }
 
 def calculate_price_in_rubles(price_ua, rate=2.7, income_percentage=10):
     try:
-        price_ua = float(price_ua.replace('₴', '').replace(' ', '').replace(',', '.'))
+        price_ua = float(price_ua.replace('$', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) 
     except ValueError:
         return 'Invalid price format'
 
@@ -90,25 +146,3 @@ def calculate_price_in_rubles(price_ua, rate=2.7, income_percentage=10):
 
     total_price_rub = price_rub + income + commission
     return round(total_price_rub, 2)
-
-if __name__ == "__main__":
-    query = input("Введите название игры: ")
-    rate = float(input("Введите курс грн/руб: "))
-    income_percentage = float(input("Введите желаемый доход в %: "))
-    
-    app_url = parse_steam_search(query)
-    if app_url:
-        app_details = parse_steam_app_page(app_url)
-        if app_details:
-            name = app_details.get('название', 'Название не найдено')
-            price = app_details.get('цена в гривнах', 'Цена не найдена')
-            print(f"\nНазвание: {name}")
-            print(f"Цена: {price}")
-            price_rub = calculate_price_in_rubles(price, rate, income_percentage)
-            print(f"Цена в рублях: {price_rub}\n")
-            description = app_details.get('описание', '')
-            if description:
-                description_en = translate_text(description, 'en')
-                description_ru = translate_text(description, 'ru')
-                print(f"Описание на английском: {description_en}\n")
-                print(f"Описание на русском: {description_ru}\n")

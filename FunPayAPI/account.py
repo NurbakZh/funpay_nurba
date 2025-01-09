@@ -1616,7 +1616,6 @@ class Account:
             raise exceptions.AccountNotInitiatedError()
         headers = {}
         response = self.method("get", f"lots/offerEdit?offer={lot_id}", headers, {}, raise_not_200=True)
-
         html_response = response.content.decode()
         bs = BeautifulSoup(html_response, "lxml")
         error_message = bs.find("p", class_="lead")
@@ -1636,6 +1635,60 @@ class Account:
         if self.currency != currency:
             self.currency = currency
         return types.LotFields(lot_id, result, subcategory, currency)
+
+    def get_lots_variants(self, node_id: int) -> types.LotFields:
+        """
+        Получает все поля лота.
+
+        :param lot_id: ID лота.
+        :type lot_id: :obj:`int`
+
+        :return: объект с полями лота.
+        :rtype: :class:`FunPayAPI.types.LotFields`
+        """
+        if not self.is_initiated:
+            raise exceptions.AccountNotInitiatedError()
+        headers = {}
+        response = self.method("get", f"lots/offerEdit?node={node_id}", headers, {}, raise_not_200=True)
+        html_response = response.content.decode()
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        def get_select_options(label_text=None, select_name=None):
+            if label_text:
+                label = soup.find('label', class_='control-label', string=label_text)
+                if not label:
+                    return None
+                select = label.find_next('select')
+            elif select_name:
+                select = soup.find('select', {'name': select_name})
+            else:
+                return None
+
+            if not select:
+                return None
+
+            options = [
+                {"value": option.get('value'), "text": option.text.strip()}
+                for option in select.find_all('option') if option.text.strip()
+            ]
+            return options
+
+        game_options = get_select_options(select_name="server_id")
+        platform_options = get_select_options("Платформа")
+
+        type_of_lot_select = soup.find('select', {'name': 'fields[type]'})
+        if type_of_lot_select and len(type_of_lot_select.find_all('option')) > 1:
+            type_of_lot_option = type_of_lot_select.find_all('option')[1]
+            type_of_lot = {"value": type_of_lot_option.get('value'), "text": type_of_lot_option.text.strip()}
+        else:
+            type_of_lot = None
+
+        return {
+            "game_options": game_options,
+            "platform_options": platform_options,
+            "type_of_lot": type_of_lot
+        }
+
 
     def save_lot(self, lot_fields: types.LotFields):
         """

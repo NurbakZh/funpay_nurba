@@ -794,7 +794,7 @@ class Cardinal(object):
                 if not self.is_plugin(file):
                     continue
                 plugin, data = self.load_plugin(file)
-            except:
+            except Exception as e:
                 logger.error(_("crd_plugin_load_err", file))
                 logger.debug("TRACEBACK", exc_info=True)
                 continue
