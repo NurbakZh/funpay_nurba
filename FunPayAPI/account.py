@@ -1673,8 +1673,26 @@ class Account:
             ]
             return options
 
+        def get_platform_option():
+            platform_label = soup.find('label', class_='control-label', string="Платформа")
+            if not platform_label:
+                return None
+            platform_select = platform_label.find_next('select')
+            if not platform_select:
+                return None
+            platform_option = next((option for option in platform_select.find_all('option') if option.text.strip() in ["Steam", "PC", "PC (Steam)"]), None)
+            return platform_option
+
         game_options = get_select_options(select_name="server_id")
         platform_options = get_select_options("Платформа")
+
+        if game_options and any(option["text"] == "Платформа" for option in game_options):
+            platform_option = get_platform_option()
+            if platform_option:
+                return {
+                    "value": platform_option.get('value'),
+                    "text": platform_option.text.strip()
+                }
 
         type_of_lot_select = soup.find('select', {'name': 'fields[type]'})
         if type_of_lot_select and len(type_of_lot_select.find_all('option')) > 1:
