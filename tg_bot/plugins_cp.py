@@ -23,7 +23,6 @@ logger = logging.getLogger("TGBot")
 localizer = Localizer()
 _ = localizer.translate
 
-
 def init_plugins_cp(cardinal: Cardinal, *args):
     tg = cardinal.telegram
     bot = tg.bot

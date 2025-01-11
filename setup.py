@@ -10,7 +10,11 @@ common_packages = [
     "aiohttp==3.9.0",
     "requests_toolbelt==0.10.1",
     "lxml>=5.3.0",
-    "bcrypt>=4.2.0"
+    "bcrypt>=4.2.0",
+    "schedule>=1.1.0",
+    "pytz>=2022.1",
+    "cloudscraper>=1.2.60",
+    "googletrans==4.0.0-rc1"
 ]
 
 

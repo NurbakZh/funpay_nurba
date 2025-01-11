@@ -1602,6 +1602,61 @@ class Account:
         return CalcResult(subcategory_type, subcategory_id, methods, price, min_price, min_price_currency,
                           self.currency)
 
+    def get_lots_field(self, node_id: int, offer_id: int) -> dict:
+        """
+        Получает все поля лота.
+
+        :param node_id: ID узла.
+        :type node_id: :obj:`int`
+        
+        :param offer_id: ID предложения.
+        :type offer_id: :obj:`int`
+
+        :return: объект с полями лота.
+        :rtype: :obj:`dict`
+        """
+        if not self.is_initiated:
+            raise exceptions.AccountNotInitiatedError()
+        headers = {}
+        response = self.method("get", f"lots/offerEdit?node={node_id}&offer={offer_id}", headers, {}, raise_not_200=True)
+        html_response = response.content.decode()
+        bs = BeautifulSoup(html_response, "lxml")
+        error_message = bs.find("p", class_="lead")
+        if error_message:
+            raise exceptions.LotParsingError(response, error_message.text, offer_id)
+        result = {}
+
+        server_id = bs.find("select", {"name": "server_id"})
+        if server_id:
+            result["server_id"] = server_id.find("option", selected=True)["value"]
+
+        for field in bs.find_all("div", class_="lot-field"):
+            if "hidden" not in field.get("class", []):
+                select = field.find("select")
+                if select:
+                    result[select["name"]] = select.find("option", selected=True)["value"]
+
+        multilingual_fields = bs.find("div", class_="lot-fields-multilingual")
+        if multilingual_fields:
+            for name in ["fields[summary][ru]", "fields[desc][ru]", "fields[summary][en]", "fields[desc][en]"]:
+                input_field = multilingual_fields.find("input", {"name": name})
+                if input_field:
+                    result[name] = input_field.get("value", "")
+                else:
+                    textarea_field = multilingual_fields.find("textarea", {"name": name})
+                    if textarea_field:
+                        result[name] = textarea_field.text
+
+        price_field = bs.find("input", {"name": "price"})
+        if price_field:
+            result["price"] = price_field.get("value", 0)
+
+        region_field = bs.find("select", {"name": "fields[region]"})
+        if region_field:
+            result["fields[region]"] = region_field.find("option", selected=True)["value"]
+
+        return result
+
     def get_lot_fields(self, lot_id: int) -> types.LotFields:
         """
         Получает все поля лота.
@@ -1635,6 +1690,7 @@ class Account:
         if self.currency != currency:
             self.currency = currency
         return types.LotFields(lot_id, result, subcategory, currency)
+
 
     def get_lots_variants(self, node_id: int) -> types.LotFields:
         """

@@ -4,8 +4,14 @@ import cloudscraper
 from googletrans import Translator
 
 def get_select_items(node_id):
+    headers = {
+        "accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "x-requested-with": "XMLHttpRequest"
+    }
     url = f"https://funpay.com/lots/offerEdit?node={node_id}"
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise Exception(f"Failed to fetch the webpage: {response.status_code}")
 
@@ -35,8 +41,14 @@ def get_select_items(node_id):
     }
 
 def get_promo_game_link(game_title):
+    headers = {
+        "accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "x-requested-with": "XMLHttpRequest"
+    }
     url = "https://funpay.com/"
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise Exception(f"Failed to fetch the webpage: {response.status_code}")
 
@@ -68,8 +80,14 @@ def translate_text(text, dest_language):
     return translation.text
     
 def parse_steam_search(query, countryCode):
+    headers = {
+        "accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "x-requested-with": "XMLHttpRequest",
+    }
     url = f"https://store.steampowered.com/search/?term={query.replace(' ', '+')}"
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     if response.status_code != 200:
         print(f"Failed to retrieve the page. Status code: {response.status_code}")
         return
@@ -124,25 +142,31 @@ def parse_steam_app_page(url):
         'цена в гривнах': price
     }
 
-def calculate_price_in_rubles(price_ua, rate=2.7, income_percentage=10):
+def calculate_price_in_rubles(price_ua, rate=2.7, income={
+        "1_100": 0,
+        "101_500": 0,
+        "501_2000": 0,
+        "2001_5000": 0,
+        "5001_plus": 0,
+    }):
     try:
         price_ua = float(price_ua.replace('$', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) 
     except ValueError:
         return 'Invalid price format'
 
-    price_rub = price_ua * rate
-    income = price_rub * (income_percentage / 100)
+    price_rub = price_ua * rate * 1.03
+    comission = 0
 
-    if 40 <= price_ua <= 100:
-        commission = 50
-    elif 101 <= price_ua <= 500:
-        commission = 100
-    elif 501 <= price_ua <= 2000:
-        commission = 150
-    elif 2001 <= price_ua <= 10000:
-        commission = 200
+    if 1 <= price_rub <= 100:
+        commission = income["1_100"]
+    elif 101 <= price_rub <= 500:
+        commission = income["101_500"]
+    elif 501 <= price_rub <= 2000:
+        commission = income["501_2000"]
+    elif 2001 <= price_rub <= 5000:
+        commission = income["2001_5000"]
     else:
-        commission = max(30, price_rub * 0.03)
+        commission = income["5001_plus"]
 
-    total_price_rub = price_rub + income + commission
+    total_price_rub = price_rub + commission
     return round(total_price_rub, 2)
