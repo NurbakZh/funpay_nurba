@@ -90,39 +90,6 @@ def download_photo(url: str) -> bytes | None:
     return response.content
 
 
-# Разбор данных объявления
-def get_notification_type(data: dict) -> NotificationTypes:
-    """
-    Находит данные о типе объявления.
-    0 - реклама.
-    1 - объявление.
-    Другое - критическое объявление.
-
-    :param data: данные объявления.
-
-    :return: тип уведомления.
-    """
-    types = {
-        0: NotificationTypes.ad,
-        1: NotificationTypes.announcement,
-        2: NotificationTypes.important_announcement
-    }
-    return types[data.get("type")] if data.get("type") in types else NotificationTypes.critical
-
-
-def get_photo(data: dict) -> bytes | None:
-    """
-    Загружает фотографию по ссылке, если она есть в данных об объявлении.
-
-    :param data: данные объявления.
-
-    :return: фотографию в виде массива байтов или None, если ссылка на фото не найдена или загрузка не удалась.
-    """
-    if not (photo := data.get("ph")):
-        return None
-    return download_photo(u"{}".format(photo))
-
-
 def get_text(data: dict) -> str | None:
     """
     Находит данные о тексте объявления.
@@ -134,17 +101,6 @@ def get_text(data: dict) -> str | None:
     if not (text := data.get("text")):
         return None
     return u"{}".format(text)
-
-
-def get_pin(data: dict) -> bool:
-    """
-    Получает информацию о том, нужно ли закреплять объявление.
-
-    :param data: данные объявления.
-
-    :return: True / False.
-    """
-    return bool(data.get("pin"))
 
 
 def get_keyboard(data: dict) -> K | None:
@@ -171,49 +127,12 @@ def get_keyboard(data: dict) -> K | None:
         return None
     return kb
 
-
-def announcements_loop_iteration(crd: Cardinal, ignore_last_tag: bool = False):
-    global LAST_TAG
-    if not (data := get_announcement(ignore_last_tag=ignore_last_tag)):
-        time.sleep(REQUESTS_DELAY)
-        return
-
-    elif not LAST_TAG:
-        LAST_TAG = data.get("tag")
-        save_last_tag()
-        time.sleep(REQUESTS_DELAY)
-        return
-
-    if not ignore_last_tag:
-        LAST_TAG = data.get("tag")
-        save_last_tag()
-    text = get_text(data)
-    photo = get_photo(data)
-    notification_type = get_notification_type(data)
-    keyboard = get_keyboard(data)
-    pin = get_pin(data)
-
-    if text or photo:
-        Thread(target=crd.telegram.send_notification,
-               args=(text,),
-               kwargs={"photo": photo, 'notification_type': notification_type, 'keyboard': keyboard,
-                       'pin': pin},
-               daemon=True).start()
-
-
 def announcements_loop(crd: Cardinal):
     """
     Бесконечный цикл получения объявлений.
     """
     if not crd.telegram:
         return
-
-    while True:
-        try:
-            announcements_loop_iteration(crd, ignore_last_tag=False)
-        except:
-            pass
-        time.sleep(REQUESTS_DELAY)
 
 
 def main(crd: Cardinal):

@@ -5,10 +5,10 @@ from googletrans import Translator
 
 def get_select_items(node_id):
     headers = {
-        "accept": "*/*",
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "x-requested-with": "XMLHttpRequest"
+        "Accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-requested-with": "XMLHttpRequest"
     }
     url = f"https://funpay.com/lots/offerEdit?node={node_id}"
     response = requests.get(url, headers=headers)
@@ -42,10 +42,10 @@ def get_select_items(node_id):
 
 def get_promo_game_link(game_title):
     headers = {
-        "accept": "*/*",
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "x-requested-with": "XMLHttpRequest"
+        "Accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-requested-with": "XMLHttpRequest"
     }
     url = "https://funpay.com/"
     response = requests.get(url, headers=headers)
@@ -79,13 +79,16 @@ def translate_text(text, dest_language):
     translation = translator.translate(text, dest=dest_language)
     return translation.text
     
-def parse_steam_search(query, countryCode):
+def parse_steam_search(query, steamLoginSecure = None):
     headers = {
-        "accept": "*/*",
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "x-requested-with": "XMLHttpRequest",
+        "Accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-requested-with": "XMLHttpRequest",
     }
+    if steamLoginSecure is not None:
+        headers["Cookie"] = f'steamLoginSecure={steamLoginSecure}'
+
     url = f"https://store.steampowered.com/search/?term={query.replace(' ', '+')}"
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
@@ -101,7 +104,7 @@ def parse_steam_search(query, countryCode):
             href = first_a_tag.get('href')
             appid = first_a_tag.get('data-ds-appid')
             # Modify the URL to append ?cc=ua
-            href = href.split('/?')[0] + f"?cc={countryCode}"
+            href = href.split('/?')[0]
             return href
         else:
             print("No <a> tag found in the search result container.")
@@ -110,11 +113,16 @@ def parse_steam_search(query, countryCode):
         print("No search result container found.")
         return
 
-def parse_steam_app_page(url):
+def parse_steam_app_page(url, steamLoginSecure = None):
     headers = {
-        'Accept-Language': 'uk-UA,uk;q=0.9',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        "Accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-requested-with": "XMLHttpRequest",
     }
+    if steamLoginSecure is not None:
+        headers["Cookie"] = f'steamLoginSecure={steamLoginSecure}'
+
     cookies = {
         'Steam_Language': 'uk',
         'birthtime': '568022401',
@@ -127,15 +135,18 @@ def parse_steam_app_page(url):
         return
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    app_name = soup.find('div', class_='apphub_AppName').text
+    app_wrapper = soup.find('div', class_='apphub_AppName')
+    app_name = None
+    if app_wrapper:
+        app_name = app_wrapper.text
 
     purchase_game_wrapper = soup.find('div', class_='game_area_purchase_game_wrapper')
-    price = 'N/A'
+    price = None
     if purchase_game_wrapper:
         price = purchase_game_wrapper.find('div', class_='game_purchase_price')
         if not price:
             price = purchase_game_wrapper.find('div', class_='discount_final_price')
-        price = price.text.strip() if price else 'N/A'
+        price = price.text.strip() if price else None
 
     return {
         'название': app_name,
@@ -149,8 +160,10 @@ def calculate_price_in_rubles(price_ua, rate=2.7, income={
         "2001_5000": 0,
         "5001_plus": 0,
     }):
+    if price_ua is None:
+        return None
     try:
-        price_ua = float(price_ua.replace('$', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) 
+        price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) 
     except ValueError:
         return 'Invalid price format'
 

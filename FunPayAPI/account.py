@@ -1628,7 +1628,7 @@ class Account:
 
         server_id = bs.find("select", {"name": "server_id"})
         if server_id:
-            result["server_id"] = server_id.find("option", selected=True)["value"]
+            result["server_id"] = server_id.find("option", selected=True)["value"] 
 
         for field in bs.find_all("div", class_="lot-field"):
             if "hidden" not in field.get("class", []):
@@ -1740,9 +1740,18 @@ class Account:
             return platform_option
 
         game_options = get_select_options(select_name="server_id")
+        side_options = get_select_options(select_name="side_id")
         platform_options = get_select_options("Платформа")
 
         if game_options and any(option["text"] == "Платформа" for option in game_options):
+            platform_option = get_platform_option()
+            if platform_option:
+                return {
+                    "value": platform_option.get('value'),
+                    "text": platform_option.text.strip()
+                }
+
+        if side_options and any(option["text"] == "PC" for option in side_options):
             platform_option = get_platform_option()
             if platform_option:
                 return {
@@ -1757,10 +1766,18 @@ class Account:
         else:
             type_of_lot = None
 
+        launcher_select = soup.find('select', {'name': 'fields[launcher]'})
+        if launcher_select and len(launcher_select.find_all('option')) > 1:
+            launcher_s = 'Steam' 
+        else:
+            launcher_s = None
+
         return {
             "game_options": game_options,
             "platform_options": platform_options,
-            "type_of_lot": type_of_lot
+            "type_of_lot": type_of_lot,
+            "side_options": side_options,
+            "launcher_s": launcher_s
         }
 
 
