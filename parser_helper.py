@@ -40,6 +40,47 @@ def get_select_items(node_id):
         "platform_options": platform_options
     }
 
+def parse_steam_currency_page(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        token_element = soup.find(attrs={"data-token": True})
+        if token_element:
+            token = token_element['data-token']
+        else:
+            return None
+    else:
+        return None
+
+    headers = {
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
+        'Connection': 'keep-alive',
+        'Cookie': '_ym_uid=1736742020097962631; _ym_d=1736740220; _ym_visorc=w; _ym_isad=2',
+        'Host': 'api.steam-currency.ru',
+        'Origin': 'https://steam-currency.ru',
+        'Referer': 'https://steam-currency.ru/',
+        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        'Sec-Ch-Ua-Mobile': '0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
+        'Token': token,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    }
+    
+    response = requests.get("https://api.steam-currency.ru/currency", headers=headers)
+    return {
+        "uah_kzt_rate": next((item['close_price'] for item in data if item['currency_pair'] == 'USD:KZT'), None),
+        "uah_en_rate": next((item['close_price'] for item in data if item['currency_pair'] == 'USD:UAH'), None),
+    }
+    if response.status_code == 200:
+        return response.json() 
+    else:
+        return None
+
 def get_promo_game_link(game_title):
     headers = {
         "Accept": "*/*",
@@ -160,10 +201,12 @@ def calculate_price_in_rubles(price_ua, rate=2.7, income={
         "2001_5000": 0,
         "5001_plus": 0,
     }):
+    print(price_ua)
     if price_ua is None:
         return None
     try:
-        price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) 
+        if not isinstance(price_ua, float):
+            price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) 
     except ValueError:
         return 'Invalid price format'
 

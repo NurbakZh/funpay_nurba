@@ -1750,15 +1750,7 @@ class Account:
                     "value": platform_option.get('value'),
                     "text": platform_option.text.strip()
                 }
-
-        if side_options and any(option["text"] == "PC" for option in side_options):
-            platform_option = get_platform_option()
-            if platform_option:
-                return {
-                    "value": platform_option.get('value'),
-                    "text": platform_option.text.strip()
-                }
-
+            
         type_of_lot_select = soup.find('select', {'name': 'fields[type]'})
         if type_of_lot_select and len(type_of_lot_select.find_all('option')) > 1:
             type_of_lot_option = type_of_lot_select.find_all('option')[1]
