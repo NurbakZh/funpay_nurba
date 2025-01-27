@@ -52,6 +52,11 @@ settings = {
 }
 
 def get_game_prices(game_name):
+    prices = parse_steam_currency_page("https://steam-currency.ru/")
+    if prices["uah_kzt_rate"] is not None:
+        settings["uah_kzt_rate_steam_currency"] = prices["uah_kzt_rate"]
+    if prices["uah_en_rate"] is not None:
+        settings["uah_en_rate_steam_currency"] = prices["uah_en_rate"]
     app_url_ua = parse_steam_search(game_name, settings.get('steamLoginSecureUa')) + f"?cc=ua"
     app_details_ua = parse_steam_app_page(app_url_ua, settings.get('steamLoginSecureUa'))
     name_ua = app_details_ua.get('название', 'Название не найдено')
@@ -72,7 +77,7 @@ def get_game_prices(game_name):
         price_uah_ge = calculate_price_in_rubles(price_ge, settings["uah_en_rate_steam_currency"], settings["income"])
         price_rub_ge = calculate_price_in_rubles(price_ge, settings["rub_usd_rate"], settings["income"])
         price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', ''))
-        if price_ua and price_uah_ge and abs(price_ua - price_uah_ge) / price_uah_ge > 0.1:
+        if price_ua and price_uah_ge and abs(price_ua - price_uah_ge) / price_uah_ge > 0.15:
             price_rub_ge = price_rub_en
 
     app_url_kz = parse_steam_search(game_name) + f"?cc=kz"
@@ -83,10 +88,9 @@ def get_game_prices(game_name):
     else:
         price_uah_kz = calculate_price_in_rubles(price_kz, 1 / settings["uah_kzt_rate_steam_currency"], settings["income"])
         price_rub_kz = calculate_price_in_rubles(price_uah_kz, settings["rub_uah_rate"], settings["income"])
-        if price_ua and price_uah_kz and abs(price_ua - price_uah_kz) / price_uah_kz > 0.1:
+        if price_ua and price_uah_kz and abs(price_ua - price_uah_kz) / price_uah_kz > 0.15:
             price_rub_kz = price_rub_en
             
-
     app_url_ru = parse_steam_search(game_name) + f"?cc=ru"
     app_details_ru = parse_steam_app_page(app_url_ru)
     price_ru = app_details_ru.get('цена в гривнах')
@@ -154,7 +158,16 @@ def save_game_and_lot_names(game_name, lot_name, node_id, region, price):
         else:
             data = []
 
-        data.append({'game_name': game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price})
+        existing_entry = next((item for item in data if 
+            item['game_name'] == game_name and 
+            item['lot_name'] == lot_name and
+            item['node_id'] == node_id and 
+            item['region'] == region), None)
+
+        if existing_entry:
+            existing_entry['price'] = price
+        else:
+            data.append({'game_name': game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price})
 
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
@@ -183,6 +196,7 @@ def get_children_ids(obj):
     return ids
 
 def update_lots(cardinal, bot, message):
+    logger.info(f"[LOTS UPDATE] Начал процесс обновления цен.")
     prices = parse_steam_currency_page("https://steam-currency.ru/")
     if prices["uah_kzt_rate"] is not None:
         settings["uah_kzt_rate_steam_currency"] = prices["uah_kzt_rate"]
@@ -214,7 +228,7 @@ def update_lots(cardinal, bot, message):
             game_name = saved_lot['game_name']
             lot_name = saved_lot['lot_name']
             game_prices = get_game_prices(game_name)
-            prrice_for_russia = price_rub_ua
+            price_for_russia = game_prices["price_rub_ua"]
             price_for_kazakhstan = game_prices["price_rub_kz"]
             price_for_cis = game_prices["price_rub_ge"]
         
@@ -244,6 +258,13 @@ def update_lots(cardinal, bot, message):
                 try:
                     cardinal.account.save_lot(lot)
                     logger.info(f"[LOTS COPY] Изменил лот {parent_id}.")
+                    
+                    for item in saved_data:
+                        if item['node_id'] == str(lot_id):
+                            item['price'] = float(new_price_rub)
+                    
+                    with open(file_path, 'w', encoding='utf-8') as file:
+                        json.dump(saved_data, file, ensure_ascii=False, indent=4)
                 except Exception as e:
                     print(e)
                     logger.error(f"[LOTS COPY] Не удалось изменить лот {parent_id}.")
@@ -256,7 +277,7 @@ def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 21 and now.minute == 5:
+        if now.hour == 21 and now.minute == 00:
             update_lots(cardinal, bot, message)
 
     schedule.every().minute.do(job)
@@ -343,13 +364,13 @@ def init_commands(cardinal: Cardinal):
                 if not suitable_platform_option:
                     raise Exception(f"No suitable platform option found for 'Steam' or 'PC'")
 
-            prrice_for_russia = price_rub_ua
+            price_for_russia = price_rub_ua
             price_for_kazakhstan = price_rub_kz
             price_for_cis = price_rub_ge
-            if price_rub_ua and price_ru and abs(price_rub_ua - price_ru) / price_ru > 0.1:
+            if price_rub_ua and price_ru and abs(price_rub_ua - price_ru) / price_ru > 0.15:
                 price_for_russia = price_rub_en
             regions = ["Россия", "Казахстан", "Украина", "СНГ", "Турция", "Аргентина"]
-            prices = [prrice_for_russia, price_for_kazakhstan, price_rub_ua, price_for_cis, price_rub_en, price_rub_en]
+            prices = [price_for_russia, price_for_kazakhstan, price_rub_ua, price_for_cis, price_rub_en, price_rub_en]
            
             for region, price in zip(regions, prices):
                 if region == 'СНГ':

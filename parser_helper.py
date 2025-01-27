@@ -72,12 +72,14 @@ def parse_steam_currency_page(url):
     }
     
     response = requests.get("https://api.steam-currency.ru/currency", headers=headers)
-    return {
-        "uah_kzt_rate": next((item['close_price'] for item in data if item['currency_pair'] == 'USD:KZT'), None),
-        "uah_en_rate": next((item['close_price'] for item in data if item['currency_pair'] == 'USD:UAH'), None),
-    }
+    
     if response.status_code == 200:
-        return response.json() 
+        data = response.json()
+        data_list = data if isinstance(data, list) else [data]
+        return {
+            "uah_kzt_rate": next((str(item.get('close_price')) for item in data_list if item.get('currency_pair') == 'USD:KZT'), None),
+            "uah_en_rate": next((str(item.get('close_price')) for item in data_list if item.get('currency_pair') == 'USD:UAH'), None),
+        }
     else:
         return None
 
@@ -201,7 +203,6 @@ def calculate_price_in_rubles(price_ua, rate=2.7, income={
         "2001_5000": 0,
         "5001_plus": 0,
     }):
-    print(price_ua)
     if price_ua is None:
         return None
     try:
