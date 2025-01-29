@@ -1,128 +1,44 @@
 [
     {
-        "game_name": "Lethal Company",
-        "lot_name": "Lethal Company",
-        "node_id": "2018",
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
         "region": "Россия",
-        "price": 380.42
+        "price": 1339.02
     },
     {
-        "game_name": "Lethal Company",
-        "lot_name": "Lethal Company",
-        "node_id": "2018",
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
         "region": "Казахстан",
-        "price": 714.19
+        "price": 6415.52
     },
     {
-        "game_name": "Lethal Company",
-        "lot_name": "Lethal Company",
-        "node_id": "2018",
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
         "region": "Украина",
-        "price": 380.42
+        "price": 1339.02
     },
     {
-        "game_name": "Lethal Company",
-        "lot_name": "Lethal Company",
-        "node_id": "2018",
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
         "region": "СНГ",
-        "price": 714.19
+        "price": 6415.52
     },
     {
-        "game_name": "Lethal Company",
-        "lot_name": "Lethal Company",
-        "node_id": "2018",
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
         "region": "Турция",
-        "price": 714.19
+        "price": 6415.52
     },
     {
-        "game_name": "Lethal Company",
-        "lot_name": "Lethal Company",
-        "node_id": "2018",
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
         "region": "Аргентина",
-        "price": 714.19
-    },
-    {
-        "game_name": "Kenshi",
-        "lot_name": "Kenshi",
-        "node_id": "2630",
-        "region": "Россия",
-        "price": 973.6
-    },
-    {
-        "game_name": "Kenshi",
-        "lot_name": "Kenshi",
-        "node_id": "2630",
-        "region": "Казахстан",
-        "price": 3219.73
-    },
-    {
-        "game_name": "Kenshi",
-        "lot_name": "Kenshi",
-        "node_id": "2630",
-        "region": "Украина",
-        "price": 973.6
-    },
-    {
-        "game_name": "Kenshi",
-        "lot_name": "Kenshi",
-        "node_id": "2630",
-        "region": "СНГ",
-        "price": 3219.73
-    },
-    {
-        "game_name": "Kenshi",
-        "lot_name": "Kenshi",
-        "node_id": "2630",
-        "region": "Турция",
-        "price": 3219.73
-    },
-    {
-        "game_name": "Kenshi",
-        "lot_name": "Kenshi",
-        "node_id": "2630",
-        "region": "Аргентина",
-        "price": 3219.73
-    },
-    {
-        "game_name": "Sid Meier's Civilization 7",
-        "lot_name": "Sid Meier's Civilization 7",
-        "node_id": "2708",
-        "region": "Россия",
-        "price": 7551.2
-    },
-    {
-        "game_name": "Sid Meier's Civilization 7",
-        "lot_name": "Sid Meier's Civilization 7",
-        "node_id": "2708",
-        "region": "Казахстан",
-        "price": 7477.45
-    },
-    {
-        "game_name": "Sid Meier's Civilization 7",
-        "lot_name": "Sid Meier's Civilization 7",
-        "node_id": "2708",
-        "region": "Украина",
-        "price": 7551.2
-    },
-    {
-        "game_name": "Sid Meier's Civilization 7",
-        "lot_name": "Sid Meier's Civilization 7",
-        "node_id": "2708",
-        "region": "СНГ",
-        "price": 7477.45
-    },
-    {
-        "game_name": "Sid Meier's Civilization 7",
-        "lot_name": "Sid Meier's Civilization 7",
-        "node_id": "2708",
-        "region": "Турция",
-        "price": 7477.45
-    },
-    {
-        "game_name": "Sid Meier's Civilization 7",
-        "lot_name": "Sid Meier's Civilization 7",
-        "node_id": "2708",
-        "region": "Аргентина",
-        "price": 7477.45
+        "price": 6415.52
     }
 ]

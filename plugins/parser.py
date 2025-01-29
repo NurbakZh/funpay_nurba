@@ -35,6 +35,7 @@ logger = getLogger("FPC.create_lots_plugin")
 RUNNING = False
 
 settings = {
+    "background_task": False,
     "with_secrets": False,
     "rub_uah_rate": 2.43,
     "rub_usd_rate": 103.1,
@@ -277,7 +278,7 @@ def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 21 and now.minute == 00:
+        if now.hour == 18 and now.minute == 2:
             update_lots(cardinal, bot, message)
 
     schedule.every().minute.do(job)
@@ -299,6 +300,7 @@ def init_commands(cardinal: Cardinal):
 
     def handle_start_check(message: Message):
         try:
+            settings["background_task"] = True
             start_background_task(cardinal, bot, message)
         except Exception as e:  
             print(e)
@@ -444,6 +446,12 @@ def init_commands(cardinal: Cardinal):
             f"*Токен для США:* {setam_login_us}\n",
             parse_mode="Markdown"
         )
+    
+    def handle_config_background_task(message: Message):
+        if settings["background_task"]:
+            bot.send_message(message.chat.id, "Ежедневное обновление цен в 9 вечера *включено*", parse_mode="Markdown")
+        else:
+            bot.send_message(message.chat.id, "Ежедневное обновление цен в 9 вечера *выключено*", parse_mode="Markdown")
 
     def handle_config(message: Message):
         rub_uah_rate = settings.get("rub_uah_rate")
@@ -649,12 +657,14 @@ def init_commands(cardinal: Cardinal):
         ("set_config_steam", "конфигурация токенов аккаунтов steam", True),
         ("get_config_steam", "получить информацию о токенах аккаунтов steam", True),
         ("get_config_price", "получить информацию об актуальной конфигурации курсов валют", True),
+        ("check_background_task", "получить информацию о статусе ежедневной проверки цен", True),
         ("start_background_task", "начать ежедневное обновление цен в 9 вечера(ВАЖНО: вызывайте эту комманду только один раз за использование бота)", True),
     ])
 
     tg.msg_handler(handle_add_lot, commands=["add_lot"])
     tg.msg_handler(handle_config_price, commands=["set_config_price"])
     tg.msg_handler(handle_config_steam, commands=["set_config_steam"])
+    tg.msg_handler(handle_config_background_task, commands=["check_background_task"])
     tg.msg_handler(handle_config_get_steam, commands=["get_config_steam"])
     tg.msg_handler(handle_config, commands=["get_config_price"])
     tg.msg_handler(handle_start_check, commands=["start_background_task"])
