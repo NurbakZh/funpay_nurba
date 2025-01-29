@@ -21,7 +21,7 @@ import os
 import time
 import json
 import pytz
-from parser_helper import get_promo_game_link, parse_steam_search, parse_steam_app_page, calculate_price_in_rubles, translate_text, parse_steam_currency_page
+from parser_helper import check_for_last, get_promo_game_link, parse_steam_search, parse_steam_app_page, calculate_price_in_rubles, translate_text, parse_steam_currency_page
 
 
 NAME = "Lots Add Plugin"
@@ -177,6 +177,12 @@ def save_game_and_lot_names(game_name, lot_name, node_id, region, price):
     except Exception as e:
         print(f"An error occurred while saving game and lot names: {e}")
 
+def get_last_email(cardinal, bot, message):
+    last_email = check_for_last()
+    if last_email == "noCodeFound":
+        bot.send_message(message.chat.id, f"Последнее сообщение из почты с кодом не найдено")
+    else:
+        bot.send_message(message.chat.id, f"Последнее сообщение из почты: {last_email}")
 
 def generate_random_id():
     first_three_digits = random.randint(100, 999)
@@ -659,6 +665,7 @@ def init_commands(cardinal: Cardinal):
         ("get_config_price", "получить информацию об актуальной конфигурации курсов валют", True),
         ("check_background_task", "получить информацию о статусе ежедневной проверки цен", True),
         ("start_background_task", "начать ежедневное обновление цен в 9 вечера(ВАЖНО: вызывайте эту комманду только один раз за использование бота)", True),
+        ("get_last_email", "получить последнее сообщение из почты", True),
     ])
 
     tg.msg_handler(handle_add_lot, commands=["add_lot"])
@@ -668,6 +675,7 @@ def init_commands(cardinal: Cardinal):
     tg.msg_handler(handle_config_get_steam, commands=["get_config_steam"])
     tg.msg_handler(handle_config, commands=["get_config_price"])
     tg.msg_handler(handle_start_check, commands=["start_background_task"])
+    tg.msg_handler(get_last_email, commands=["get_last_email"])
 
 
 BIND_TO_PRE_INIT = [init_commands]

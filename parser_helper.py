@@ -7,6 +7,7 @@ import email
 import base64
 from dotenv import load_dotenv
 from googletrans import Translator
+import re
 
 load_dotenv()
 
@@ -235,53 +236,56 @@ def calculate_price_in_rubles(price_ua, rate=2.7, income={
     total_price_rub = price_rub + commission
     return round(total_price_rub, 2)
 
-def main():
+def check_for_last():
     EMAIL_ACCOUNT = os.getenv('EMAIL_ACCOUNT')
     EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 
     if EMAIL_ACCOUNT is None or EMAIL_PASSWORD is None:
         print("Environment variables EMAIL_ACCOUNT and/or EMAIL_PASSWORD are not set.")
-        print("Please make sure you have a .env file with these variables defined.")
-        print("Current values:", EMAIL_ACCOUNT, EMAIL_PASSWORD)
         return
 
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
     mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
     mail.select("inbox")
 
-    query = 'FROM "noreply@github.com"'
+    query = 'FROM "noreply@rockstargames.com"'
     result, data = mail.search(None, query)
 
     if result != "OK":
-        print("No GitHub notification emails found.")
+        print("No emails found from this sender.")
         return
 
     email_ids = data[0].split()
+    
+    if not email_ids:
+        print("No emails found from this sender")
+        mail.logout()
+        return
 
-    for num in email_ids[-10:]:
-        result, msg_data = mail.fetch(num, "(RFC822)")
-        raw_email = msg_data[0][1]
-        msg = email.message_from_bytes(raw_email)
+    last_email_id = email_ids[-1]
+    result, msg_data = mail.fetch(last_email_id, "(RFC822)")
+    raw_email = msg_data[0][1]
+    msg = email.message_from_bytes(raw_email)
 
-        subject = msg["Subject"]
-        print(f"Topic: {subject}")
-
-        if "[GitHub] Please verify your device" in subject:
-            for part in msg.walk():
-                if part.get_content_type() == "text/plain":
-                    body = part.get_payload(decode=True)
-                    try:
-                        body = body.decode()
-                    except UnicodeDecodeError:
-                        body = base64.b64decode(body).decode()
-                    
-                    print(f"\nMessage body:\n{body}")
-                    break
+    for part in msg.walk():
+        if part.get_content_type() == "text/plain":
+            body = part.get_payload(decode=True)
+            try:
+                body = body.decode()
+            except UnicodeDecodeError:
+                body = base64.b64decode(body).decode()
+            
+            # Extract the verification code
+            code_match = re.search(r'\b\d{6}\b', body)
+            if code_match:
+                verification_code = code_match.group(0)
+                return verification_code
+            else:
+                return "noCodeFound"
+                print("No verification code found in the email body.")
+            break
 
     mail.logout()
 
 if __name__ == "__main__":
 #   main()
-
-    prices = parse_steam_currency_page("https://steam-currency.ru/")
-    print(prices)
