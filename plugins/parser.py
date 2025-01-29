@@ -284,7 +284,7 @@ def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 21 and now.minute == 00:
+        if now.hour == 21 and now.minute == 20:
             update_lots(cardinal, bot, message)
 
     schedule.every().minute.do(job)
