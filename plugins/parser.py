@@ -75,7 +75,7 @@ def get_game_prices(game_name):
     if price_ge is None:
         price_rub_ge = price_rub_ua
     else:
-        price_uah_ge = float(price_ge.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) * float(settings["uah_en_rate_steam_currency"])
+        price_uah_ge = float(price_ge.replace('$', '').replace(' ', '').replace(',', '.').replace('USD', '')) * float(settings["uah_en_rate_steam_currency"])
         price_rub_ge = calculate_price_in_rubles(price_ge, settings["rub_usd_rate"], settings["income"])
         price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', ''))
         if price_ua and price_uah_ge and abs(price_ua - price_uah_ge) / price_uah_ge > 0.15:
@@ -87,7 +87,7 @@ def get_game_prices(game_name):
     if price_kz is None:
         price_rub_kz = price_rub_ua
     else:
-        price_uah_kz = float(price_kz.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', '')) / settings["uah_kzt_rate_steam_currency"]
+        price_uah_kz = float(price_kz.replace('₸', '').replace(' ', '').replace(',', '.').replace('USD', '')) / float(settings["uah_kzt_rate_steam_currency"])
         price_rub_kz = calculate_price_in_rubles(price_uah_kz, settings["rub_uah_rate"], settings["income"])
         if price_ua and price_uah_kz and abs(price_ua - price_uah_kz) / price_uah_kz > 0.15:
             price_rub_kz = price_rub_en
@@ -284,7 +284,7 @@ def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 21 and now.minute == 20:
+        if now.hour == 21 and now.minute == 30:
             update_lots(cardinal, bot, message)
 
     schedule.every().minute.do(job)
