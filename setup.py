@@ -14,7 +14,9 @@ common_packages = [
     "schedule>=1.1.0",
     "pytz>=2022.1",
     "cloudscraper>=1.2.60",
-    "googletrans==4.0.0-rc1"
+    "imapclient>=3.0.1",
+    "googletrans==4.0.0-rc1",
+    "python-dotenv==1.0.0"
 ]
 
 
