@@ -208,7 +208,8 @@ class TGBot:
             return
         try:
             self.file_handlers[state["state"]](m)
-        except:
+        except Exception as e:
+            print(e)
             logger.error(_("log_tg_handler_error"))
             logger.debug("TRACEBACK", exc_info=True)
 
@@ -226,6 +227,7 @@ class TGBot:
             try:
                 handler(message)
             except Exception as e:
+                print(e)
                 logger.error(_("log_tg_handler_error"))
                 logger.debug("TRACEBACK", exc_info=True)
 
@@ -243,7 +245,8 @@ class TGBot:
         def run_handler(call: CallbackQuery):
             try:
                 handler(call)
-            except:
+            except Exception as e:
+                print(e)
                 logger.error(_("log_tg_handler_error"))
                 logger.debug("TRACEBACK", exc_info=True)
 
@@ -260,7 +263,8 @@ class TGBot:
         def run_handler(bot, update):
             try:
                 handler(bot, update)
-            except:
+            except Exception as e:
+                print(e)
                 logger.error(_("log_tg_handler_error"))
                 logger.debug("TRACEBACK", exc_info=True)
 

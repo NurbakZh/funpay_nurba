@@ -58,18 +58,21 @@ def get_game_prices(game_name):
         settings["uah_kzt_rate_steam_currency"] = prices["uah_kzt_rate"]
     if prices["uah_en_rate"] is not None:
         settings["uah_en_rate_steam_currency"] = prices["uah_en_rate"]
-    app_url_ua = parse_steam_search(game_name, settings.get('steamLoginSecureUa')) + f"?cc=ua"
+    #app_url_ua = parse_steam_search(game_name, settings.get('steamLoginSecureUa')) + f"?cc=ua"
+    app_url_ua = f"https://store.steampowered.com/app/{game_name}" + f"?cc=ua"
     app_details_ua = parse_steam_app_page(app_url_ua, settings.get('steamLoginSecureUa'))
     name_ua = app_details_ua.get('название', 'Название не найдено')
     price_ua = app_details_ua.get('цена в гривнах', 'Цена не найдена')
     price_rub_ua = calculate_price_in_rubles(price_ua, settings["rub_uah_rate"], settings["income"])
 
-    app_url_en = parse_steam_search(game_name, settings.get('steamLoginSecureUs')) + f"?cc=us"
+    #app_url_en = parse_steam_search(game_name, settings.get('steamLoginSecureUs')) + f"?cc=us"
+    app_url_en = f"https://store.steampowered.com/app/{game_name}" + f"?cc=us"
     app_details_en = parse_steam_app_page(app_url_en, settings.get('steamLoginSecureUs'))
     price_en = app_details_en.get('цена в гривнах', 'Цена не найдена')
     price_rub_en = calculate_price_in_rubles(price_en, settings["rub_usd_rate"], settings["income"])
 
-    app_url_ge = parse_steam_search(game_name) + f"?cc=ge"
+    #app_url_ge = parse_steam_search(game_name) + f"?cc=ge"
+    app_url_ge = f"https://store.steampowered.com/app/{game_name}" + f"?cc=ge"
     app_details_ge = parse_steam_app_page(app_url_ge)
     price_ge = app_details_ge.get('цена в гривнах', 'Цена не найдена')
     if price_ge is None:
@@ -81,7 +84,8 @@ def get_game_prices(game_name):
         if price_ua and price_uah_ge and abs(price_ua - price_uah_ge) / price_uah_ge > 0.15:
             price_rub_ge = price_rub_en
 
-    app_url_kz = parse_steam_search(game_name) + f"?cc=kz"
+    #app_url_kz = parse_steam_search(game_name) + f"?cc=kz"
+    app_url_kz = f"https://store.steampowered.com/app/{game_name}" + f"?cc=kz"
     app_details_kz = parse_steam_app_page(app_url_kz)
     price_kz = app_details_kz.get('цена в гривнах', 'Цена не найдена')
     if price_kz is None:
@@ -92,13 +96,7 @@ def get_game_prices(game_name):
         if price_ua and price_uah_kz and abs(price_ua - price_uah_kz) / price_uah_kz > 0.15:
             price_rub_kz = price_rub_en
             
-    app_url_ru = parse_steam_search(game_name) + f"?cc=ru"
-    app_details_ru = parse_steam_app_page(app_url_ru)
-    price_ru = app_details_ru.get('цена в гривнах')
-    if price_ru is None:
-        price_ru = price_rub_ua
-    else:
-        price_ru = float(price_ru.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', ''))
+    price_ru = price_rub_ua
 
     return {
         "price_rub_ua": price_rub_ua,
@@ -176,13 +174,6 @@ def save_game_and_lot_names(game_name, lot_name, node_id, region, price):
         print(f"An error occurred while parsing the JSON file: {e}")
     except Exception as e:
         print(f"An error occurred while saving game and lot names: {e}")
-
-def get_last_email(cardinal, bot, message):
-    last_email = check_for_last()
-    if last_email == "noCodeFound":
-        bot.send_message(message.chat.id, f"Последнее сообщение из почты с кодом не найдено")
-    else:
-        bot.send_message(message.chat.id, f"Последнее сообщение из почты: {last_email}")
 
 def generate_random_id():
     first_three_digits = random.randint(100, 999)
@@ -284,7 +275,7 @@ def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 22 and now.minute == 30:
+        if now.hour == 21 and now.minute == 10:
             update_lots(cardinal, bot, message)
 
     schedule.every().minute.do(job)
@@ -298,6 +289,13 @@ def init_commands(cardinal: Cardinal):
         return
     tg = cardinal.telegram
     bot = cardinal.telegram.bot
+
+    def get_last_email(message: Message):
+        last_email = check_for_last()
+        if last_email == "noCodeFound":
+            bot.send_message(message.chat.id, f"Последнее сообщение из почты с кодом не найдено")
+        else:
+            bot.send_message(message.chat.id, f"Код из последнего сообщения из почты: {last_email}")
 
     def start_background_task(cardinal, bot, message):
         task_thread = threading.Thread(target=schedule_task, args=(cardinal, bot, message))
@@ -319,7 +317,8 @@ def init_commands(cardinal: Cardinal):
             # if settings["steamLoginSecureUa"] is None or settings["steamLoginSecureUs"] is None:
             #     bot.send_message(message.chat.id, "Пожалуйста сначала запустите комманду /set_config_steam для установки Steam аккаунтов")
             #     return 
-            msg = bot.send_message(message.chat.id, "Введите название игры в Steam:")
+            #msg = bot.send_message(message.chat.id, "Введите название игры в Steam:")
+            msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
             bot.register_next_step_handler(msg, process_game_name_step)
         except Exception as e:  
             print(e)
@@ -665,7 +664,7 @@ def init_commands(cardinal: Cardinal):
         ("get_config_price", "получить информацию об актуальной конфигурации курсов валют", True),
         ("check_background_task", "получить информацию о статусе ежедневной проверки цен", True),
         ("start_background_task", "начать ежедневное обновление цен в 9 вечера(ВАЖНО: вызывайте эту комманду только один раз за использование бота)", True),
-        ("get_last_email", "получить последнее сообщение из почты", True),
+        ("get_last_email", "получить последний код из почты", True),
     ])
 
     tg.msg_handler(handle_add_lot, commands=["add_lot"])

@@ -248,26 +248,56 @@ def check_for_last():
     mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
     mail.select("inbox")
 
-    query = 'FROM "noreply@rockstargames.com"'
-    result, data = mail.search(None, query)
+    term = u"проверочный код Rockstar Games".encode('utf-8')
+    term2 = u"Rockstar Games verification code".encode('utf-8')
 
-    if result != "OK":
-        print("No emails found from this sender.")
+    # Using UTF-8 encoded query for non-ASCII characters
+    # query = '(FROM "noreply@github.com") (OR SUBJECT "%s" SUBJECT "%s")' % (
+    #     u"verification code".encode('utf-8'),
+    #     u"verify your device".encode('utf-8')
+    # )
+    mail.literal = term
+    result, data = mail.search("utf-8", 'SUBJECT')
+    mail.literal = term2
+    result2, data2 = mail.search("utf-8", 'SUBJECT')
+
+    if result != "OK" and result2 != "OK":
+        print("No emails found matching the criteria.")
         return
 
-    email_ids = data[0].split()
-    
-    if not email_ids:
-        print("No emails found from this sender")
+    email_ids = data[0].split() if data[0] else []
+    email_ids2 = data2[0].split() if data2[0] else []
+
+    if not email_ids and not email_ids2:
+        print("No emails found matching the criteria")
         mail.logout()
         return
 
-    last_email_id = email_ids[-1]
-    result, msg_data = mail.fetch(last_email_id, "(RFC822)")
-    raw_email = msg_data[0][1]
-    msg = email.message_from_bytes(raw_email)
+    # Get the last email from each search result
+    latest_emails = []
+    
+    if email_ids:
+        last_email_id = email_ids[-1]
+        result, msg_data = mail.fetch(last_email_id, "(RFC822)")
+        email_msg = email.message_from_bytes(msg_data[0][1])
+        latest_emails.append((email_msg, email.utils.parsedate_to_datetime(email_msg['Date'])))
 
-    for part in msg.walk():
+    if email_ids2:
+        last_email_id2 = email_ids2[-1]
+        result2, msg_data2 = mail.fetch(last_email_id2, "(RFC822)")
+        email_msg2 = email.message_from_bytes(msg_data2[0][1])
+        latest_emails.append((email_msg2, email.utils.parsedate_to_datetime(email_msg2['Date'])))
+
+    # Sort emails by date and get the most recent one
+    latest_emails.sort(key=lambda x: x[1], reverse=True)
+    if not latest_emails:
+        mail.logout()
+        return
+
+    most_recent_msg = latest_emails[0][0]
+
+    # Process the most recent email
+    for part in most_recent_msg.walk():
         if part.get_content_type() == "text/plain":
             body = part.get_payload(decode=True)
             try:
@@ -279,13 +309,14 @@ def check_for_last():
             code_match = re.search(r'\b\d{6}\b', body)
             if code_match:
                 verification_code = code_match.group(0)
+                mail.logout()
                 return verification_code
-            else:
-                return "noCodeFound"
-                print("No verification code found in the email body.")
-            break
+            
+            mail.logout()
+            return "noCodeFound"
 
     mail.logout()
+    return "noCodeFound"
 
 #if __name__ == "__main__":
 #   main()

@@ -22,6 +22,8 @@ from datetime import datetime
 import logging
 import time
 import re
+from parser_helper import check_for_last
+
 
 LAST_STACK_ID = ""
 MSG_LOG_LAST_STACK_ID = ""
@@ -96,6 +98,12 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
     logger.info(_("log_new_msg", chat_name, chat_id))
     for index, event in enumerate(e.stack.get_stack()):
         username, text = event.message.author, event.message.text or event.message.image_link
+        print(text)
+        if text == "!social_club":
+            text = f"Ваш код верификации: {check_for_last()}"
+            Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+            logger.info(f"Получил запрос на код social club от пользователя {chat_name} (CID: {chat_id})")
+            break
         for line_index, line in enumerate(text.split("\n")):
             if not index and not line_index:
                 logger.info(f"$MAGENTA└───> $YELLOW{username}: $CYAN{line}")
