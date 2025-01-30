@@ -329,7 +329,7 @@ def init_commands(cardinal: Cardinal):
             game_prices = get_game_prices(game_name)
             bot.send_message(message.chat.id, f"Игра: {game_prices['name_ua']}\nЦена с долларов: {game_prices['price_rub_en']} руб.\nЦена с гривен: {game_prices['price_rub_ua']} руб.")
             msg = bot.send_message(message.chat.id, "Введите название лота:")
-            bot.register_next_step_handler(msg, process_lot_name_steap, game_name, game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_ge"], game_prices["price_rub_kz"], game_prices["price_ru"])
+            bot.register_next_step_handler(msg, process_lot_name_steap, game_prices["name_ua"], game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_ge"], game_prices["price_rub_kz"], game_prices["price_ru"])
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
