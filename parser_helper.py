@@ -6,7 +6,6 @@ import imaplib
 import email
 import base64
 from dotenv import load_dotenv
-from googletrans import Translator
 import re
 
 load_dotenv()
@@ -126,10 +125,25 @@ def get_promo_game_link(game_title):
     return id_after_lots
 
 def translate_text(text, dest_language):
-    translator = Translator()
-    translation = translator.translate(text, dest=dest_language)
-    return translation.text
+    url = "https://translate.googleapis.com/translate_a/single"
+    params = {
+        "client": "gtx",
+        "sl": "auto",
+        "tl": dest_language,
+        "dt": "t",
+        "q": text
+    }
     
+    try:
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            result = response.json()
+            translated_text = ''.join([item[0] for item in result[0] if item[0]])
+            return translated_text
+        return text
+    except:
+        return text
+
 def parse_steam_search(query, steamLoginSecure = None):
     headers = {
         "Accept": "*/*",
@@ -154,7 +168,6 @@ def parse_steam_search(query, steamLoginSecure = None):
         if first_a_tag:
             href = first_a_tag.get('href')
             appid = first_a_tag.get('data-ds-appid')
-            # Modify the URL to append ?cc=ua
             href = href.split('/?')[0]
             return href
         else:

@@ -100,7 +100,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
         username, text = event.message.author, event.message.text or event.message.image_link
         print(text)
         if text == "!social_club":
-            text = f"Ваш код верификации: {check_for_last()}"
+            text = f"Ваш код верификации/Your verification code: {check_for_last()}"
             Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
             logger.info(f"Получил запрос на код social club от пользователя {chat_name} (CID: {chat_id})")
             break
