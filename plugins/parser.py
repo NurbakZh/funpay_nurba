@@ -124,6 +124,8 @@ def generate_summary_text(region: str, game_name: str) -> str:
         return f"🔴🟡🔵СТРАНЫ 𝐂𝐈𝐒(СНГ)🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
     elif region == "Другой регион":
         return f"🔴Регионы с валютой Доллары/Евро🔴🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴{game_name}🔴"
+    elif region == "Another region":
+        return f"🔴Regions with USD/EUR currency🔴🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴{game_name}🔴"
     else:
         return f"🔴🟡🔵{region}🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
 
@@ -143,7 +145,7 @@ def generate_description_text(region: str, game_name: str) -> str:
             "❗️❗️❗️ Если я не отвечу вам сразу, подождите — ответ будет, как только я окажусь за компьютером. ❗️❗️❗️\n"
             "❗️❗️❗️ Если нужны другие версии игры (или любые другие игры), пишите в личные сообщения! 😁\n\n"
         )
-    elif region == "Другой регион":
+    elif region == "Другой регион" or region == "Another region":
         return (
             "❗️ Перед покупкой: напишите о намерении приобрести товар.\n"
             "❗️ Стоимость товара всегда актуальна, даже с учётом скидок в Steam.\n"
@@ -457,11 +459,11 @@ def init_commands(cardinal: Cardinal):
             for region, price in zip(regions, prices):
                 if region == 'СНГ':
                     summary = generate_summary_text(region, " ".join(game_name.split(" ")[1:]))
-                    summary_en = generate_summary_text("CIS countries", game_name)
+                    summary_en = generate_summary_text("CIS countries", " ".join(game_name.split(" ")[1:]))
                 else:
-                    summary = generate_summary_text(region, game_name)
-                    summary_en = generate_summary_text(translate_text(region, "en"), game_name)
-                description = generate_description_text(region, game_name)
+                    summary = generate_summary_text(region, " ".join(game_name.split(" ")[1:]))
+                    summary_en = generate_summary_text(translate_text(region, "en"), " ".join(game_name.split(" ")[1:]))
+                description = generate_description_text(region, " ".join(game_name.split(" ")[1:]))
                 lot_fields = {
                     "active": "on",
                     "deactivate_after_sale": "",
