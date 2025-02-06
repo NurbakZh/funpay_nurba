@@ -1692,7 +1692,7 @@ class Account:
         return types.LotFields(lot_id, result, subcategory, currency)
 
 
-    def get_lots_variants(self, node_id: int) -> types.LotFields:
+    def get_lots_variants(self, node_id: int, edition_name: str = None) -> types.LotFields:
         """
         Получает все поля лота.
 
@@ -1753,8 +1753,15 @@ class Account:
             
         type_of_lot_select = soup.find('select', {'name': 'fields[type]'})
         if type_of_lot_select and len(type_of_lot_select.find_all('option')) > 1:
-            type_of_lot_option = type_of_lot_select.find_all('option')[1]
-            type_of_lot = {"value": type_of_lot_option.get('value'), "text": type_of_lot_option.text.strip()}
+            if edition_name:
+                type_of_lot_option = next((option for option in type_of_lot_select.find_all('option') if option.text.strip() == edition_name), None)
+                if type_of_lot_option:
+                    type_of_lot = {"value": type_of_lot_option.get('value'), "text": type_of_lot_option.text.strip()}
+                else:
+                    type_of_lot = None
+            else:
+                type_of_lot_option = type_of_lot_select.find_all('option')[1]
+                type_of_lot = {"value": type_of_lot_option.get('value'), "text": type_of_lot_option.text.strip()}
         else:
             type_of_lot = None
 

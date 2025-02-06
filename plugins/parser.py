@@ -21,7 +21,7 @@ import os
 import time
 import json
 import pytz
-from parser_helper import check_for_last, get_promo_game_link, parse_steam_search, parse_steam_app_page, calculate_price_in_rubles, translate_text, parse_steam_currency_page
+from parser_helper import check_for_last, get_promo_game_link, parse_steam_search, parse_steam_app_page, parse_steam_edition_page, calculate_price_in_rubles, translate_text, parse_steam_currency_page
 
 
 NAME = "Lots Add Plugin"
@@ -52,7 +52,7 @@ settings = {
     "steamLoginSecureUs": None,
 }
 
-def get_game_prices(game_name):
+def get_game_prices(game_name, edition_id = None):
     prices = parse_steam_currency_page("https://steam-currency.ru/")
     if prices["uah_kzt_rate"] is not None:
         settings["uah_kzt_rate_steam_currency"] = prices["uah_kzt_rate"]
@@ -60,20 +60,29 @@ def get_game_prices(game_name):
         settings["uah_en_rate_steam_currency"] = prices["uah_en_rate"]
     #app_url_ua = parse_steam_search(game_name, settings.get('steamLoginSecureUa')) + f"?cc=ua"
     app_url_ua = f"https://store.steampowered.com/app/{game_name}" + f"?cc=ua"
-    app_details_ua = parse_steam_app_page(app_url_ua, settings.get('steamLoginSecureUa'))
+    if edition_id:
+        app_details_ua = parse_steam_edition_page(app_url_ua, settings.get('steamLoginSecureUa'), edition_id)
+    else:
+        app_details_ua = parse_steam_app_page(app_url_ua, settings.get('steamLoginSecureUa'))
     name_ua = app_details_ua.get('название', 'Название не найдено')
     price_ua = app_details_ua.get('цена в гривнах', 'Цена не найдена')
     price_rub_ua = calculate_price_in_rubles(price_ua, settings["rub_uah_rate"], settings["income"])
 
     #app_url_en = parse_steam_search(game_name, settings.get('steamLoginSecureUs')) + f"?cc=us"
     app_url_en = f"https://store.steampowered.com/app/{game_name}" + f"?cc=us"
-    app_details_en = parse_steam_app_page(app_url_en, settings.get('steamLoginSecureUs'))
+    if edition_id:
+        app_details_en = parse_steam_edition_page(app_url_en, settings.get('steamLoginSecureUs'), edition_id)
+    else:
+        app_details_en = parse_steam_app_page(app_url_en, settings.get('steamLoginSecureUs'))
     price_en = app_details_en.get('цена в гривнах', 'Цена не найдена')
     price_rub_en = calculate_price_in_rubles(price_en, settings["rub_usd_rate"], settings["income"])
 
     #app_url_ge = parse_steam_search(game_name) + f"?cc=ge"
     app_url_ge = f"https://store.steampowered.com/app/{game_name}" + f"?cc=ge"
-    app_details_ge = parse_steam_app_page(app_url_ge)
+    if edition_id:
+        app_details_ge = parse_steam_edition_page(app_url_ge, settings.get('steamLoginSecureUs'), edition_id)
+    else:
+        app_details_ge = parse_steam_app_page(app_url_ge)
     price_ge = app_details_ge.get('цена в гривнах', 'Цена не найдена')
     if price_ge is None:
         price_rub_ge = price_rub_ua
@@ -86,7 +95,10 @@ def get_game_prices(game_name):
 
     #app_url_kz = parse_steam_search(game_name) + f"?cc=kz"
     app_url_kz = f"https://store.steampowered.com/app/{game_name}" + f"?cc=kz"
-    app_details_kz = parse_steam_app_page(app_url_kz)
+    if edition_id:
+        app_details_kz = parse_steam_edition_page(app_url_kz, settings.get('steamLoginSecureUs'), edition_id)
+    else:
+        app_details_kz = parse_steam_app_page(app_url_kz)
     price_kz = app_details_kz.get('цена в гривнах', 'Цена не найдена')
     if price_kz is None:
         price_rub_kz = price_rub_ua
@@ -326,6 +338,49 @@ def init_commands(cardinal: Cardinal):
         except Exception as e:  
             print(e)
 
+    def handle_add_edition(message: Message):
+        try:
+            if settings["rub_uah_rate"] is None or settings["rub_usd_rate"] is None or settings["income"] is None:
+                bot.send_message(message.chat.id, "Пожалуйста сначала запустите комманду /set_config_price для установки курса валют(курс брать из https://steam-currency.ru/?ref=dtf.ru) и желаемое прибыли в процентах")
+                return 
+            # if settings["steamLoginSecureUa"] is None or settings["steamLoginSecureUs"] is None:
+            #     bot.send_message(message.chat.id, "Пожалуйста сначала запустите комманду /set_config_steam для установки Steam аккаунтов")
+            #     return 
+            #msg = bot.send_message(message.chat.id, "Введите название игры в Steam:")
+            msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
+            bot.register_next_step_handler(msg, process_edition_id_step)
+        except Exception as e:  
+            print(e)
+
+    def process_edition_id_step(message: Message):
+        try:
+            edition_id = message.text
+            msg = bot.send_message(message.chat.id, "Введите название издания игры в Steam:")
+            bot.register_next_step_handler(msg, process_edition_name_step, edition_id)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+            print(f"Error: {str(e)}")
+
+    def process_edition_name_step(message: Message, edition_id):
+        try:
+            edition_name = message.text
+            edition_prices = get_game_prices(edition_id, edition_name)
+            bot.send_message(message.chat.id, f"Игра: {edition_prices['name_ua']}\nЦена с долларов: {edition_prices['price_rub_en']} руб.\nЦена с гривен: {edition_prices['price_rub_ua']} руб.")
+            msg = bot.send_message(message.chat.id, "Введите название лота:")
+            bot.register_next_step_handler(msg, process_edition_lot_name_step, edition_prices["name_ua"], edition_prices["price_rub_ua"], edition_prices["price_rub_en"], edition_prices["price_rub_ge"], edition_prices["price_rub_kz"], edition_prices["price_ru"])
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+            print(f"Error: {str(e)}")
+
+    def process_edition_lot_name_step(message: Message, edition_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru):
+        try:
+            lot_name = message.text
+            msg = bot.send_message(message.chat.id, "Введите название издания в FunPay:")
+            bot.register_next_step_handler(msg, process_description_step, edition_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru, lot_name, is_edition = True)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+            print(f"Error: {str(e)}")
+
     def handle_add_lot(message: Message):
         try:
             if settings["rub_uah_rate"] is None or settings["rub_usd_rate"] is None or settings["income"] is None:
@@ -336,7 +391,7 @@ def init_commands(cardinal: Cardinal):
             #     return 
             #msg = bot.send_message(message.chat.id, "Введите название игры в Steam:")
             msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
-            bot.register_next_step_handler(msg, process_game_name_step)
+            bot.register_next_step_handler(msg, process_edition_name_step)
         except Exception as e:  
             print(e)
 
@@ -360,11 +415,14 @@ def init_commands(cardinal: Cardinal):
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_description_step(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru, lot_name):
+    def process_description_step(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru, lot_name, is_edition = False):
         try:
             funpay_game_name = message.text
             node_id = get_promo_game_link(lot_name)
-            lot_fields = cardinal.account.get_lots_variants(node_id)
+            if is_edition:
+                lot_fields = cardinal.account.get_lots_variants(node_id, edition_name = funpay_game_name)
+            else:
+                lot_fields = cardinal.account.get_lots_variants(node_id)
             game_options = lot_fields["game_options"]
             platform_options = lot_fields["platform_options"]
             type_of_lot = lot_fields["type_of_lot"]
@@ -675,6 +733,7 @@ def init_commands(cardinal: Cardinal):
 
     cardinal.add_telegram_commands(UUID, [
         ("add_lot", "создает лот на основе игры, которую вы ввели", True),
+        ("add_edition", "создает лот на специальное издание игры, которую вы ввели", True),
         ("set_config_price", "конфигурирует курс валюты и желаемую прибыль", True),
         ("set_config_steam", "конфигурация токенов аккаунтов steam", True),
         ("get_config_steam", "получить информацию о токенах аккаунтов steam", True),
@@ -685,6 +744,7 @@ def init_commands(cardinal: Cardinal):
     ])
 
     tg.msg_handler(handle_add_lot, commands=["add_lot"])
+    tg.msg_handler(handle_add_edition, commands=["add_edition"])
     tg.msg_handler(handle_config_price, commands=["set_config_price"])
     tg.msg_handler(handle_config_steam, commands=["set_config_steam"])
     tg.msg_handler(handle_config_background_task, commands=["check_background_task"])
