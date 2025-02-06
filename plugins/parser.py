@@ -121,9 +121,9 @@ def get_game_prices(game_name, edition_id = None):
 
 def generate_summary_text(region: str, game_name: str) -> str:
     if region == "СНГ":
-        return f"🔴🟡🔵СТРАНЫ 𝐂𝐈𝐒🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
+        return f"🔴🟡🔵СТРАНЫ 𝐂𝐈𝐒(СНГ)🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
     elif region == "Другой регион":
-        return f"🔴🟡🔵Регионы с валютой Доллары/Евро🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
+        return f"🔴Регионы с валютой Доллары/Евро🔴🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴{game_name}🔴"
     else:
         return f"🔴🟡🔵{region}🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
 
@@ -456,7 +456,7 @@ def init_commands(cardinal: Cardinal):
            
             for region, price in zip(regions, prices):
                 if region == 'СНГ':
-                    summary = generate_summary_text(region, game_name)
+                    summary = generate_summary_text(region, " ".join(game_name.split(" ")[1:]))
                     summary_en = generate_summary_text("CIS countries", game_name)
                 else:
                     summary = generate_summary_text(region, game_name)
