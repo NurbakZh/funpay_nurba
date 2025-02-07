@@ -396,7 +396,7 @@ def init_commands(cardinal: Cardinal):
             #     return 
             #msg = bot.send_message(message.chat.id, "Введите название игры в Steam:")
             msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
-            bot.register_next_step_handler(msg, process_edition_name_step)
+            bot.register_next_step_handler(msg, process_game_name_step)
         except Exception as e:  
             print(e)
 
