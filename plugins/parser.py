@@ -66,6 +66,7 @@ def get_game_prices(game_name, edition_id = None):
         app_details_ua = parse_steam_app_page(app_url_ua, settings.get('steamLoginSecureUa'))
     name_ua = app_details_ua.get('название', 'Название не найдено')
     price_ua = app_details_ua.get('цена в гривнах', 'Цена не найдена')
+    price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', ''))
     price_rub_ua = calculate_price_in_rubles(price_ua, settings["rub_uah_rate"], settings["income"])
 
     #app_url_en = parse_steam_search(game_name, settings.get('steamLoginSecureUs')) + f"?cc=us"
@@ -77,21 +78,22 @@ def get_game_prices(game_name, edition_id = None):
     price_en = app_details_en.get('цена в гривнах', 'Цена не найдена')
     price_rub_en = calculate_price_in_rubles(price_en, settings["rub_usd_rate"], settings["income"])
 
+    # ЦЕНА ДЛЯ ГРУЗИИ, ТО ЕСТЬ СНГ
     #app_url_ge = parse_steam_search(game_name) + f"?cc=ge"
-    app_url_ge = f"https://store.steampowered.com/app/{game_name}" + f"?cc=ge"
-    if edition_id:
-        app_details_ge = parse_steam_edition_page(app_url_ge, settings.get('steamLoginSecureUs'), edition_id)
-    else:
-        app_details_ge = parse_steam_app_page(app_url_ge)
-    price_ge = app_details_ge.get('цена в гривнах', 'Цена не найдена')
-    if price_ge is None:
-        price_rub_ge = price_rub_ua
-    else:
-        price_uah_ge = float(price_ge.replace('$', '').replace(' ', '').replace(',', '.').replace('USD', '')) * float(settings["uah_en_rate_steam_currency"])
-        price_rub_ge = calculate_price_in_rubles(price_ge, settings["rub_usd_rate"], settings["income"])
-        price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', ''))
-        if price_ua and price_uah_ge and abs(price_ua - price_uah_ge) / price_uah_ge > 0.15:
-            price_rub_ge = price_rub_en
+    # app_url_ge = f"https://store.steampowered.com/app/{game_name}" + f"?cc=ge"
+    # if edition_id:
+    #     app_details_ge = parse_steam_edition_page(app_url_ge, settings.get('steamLoginSecureUs'), edition_id)
+    # else:
+    #     app_details_ge = parse_steam_app_page(app_url_ge)
+    # price_ge = app_details_ge.get('цена в гривнах', 'Цена не найдена')
+    # if price_ge is None:
+    #     price_rub_ge = price_rub_ua
+    # else:
+    #     price_uah_ge = float(price_ge.replace('$', '').replace(' ', '').replace(',', '.').replace('USD', '')) * float(settings["uah_en_rate_steam_currency"])
+    #     price_rub_ge = calculate_price_in_rubles(price_ge, settings["rub_usd_rate"], settings["income"])
+    #     price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', ''))
+    #     if price_ua and price_uah_ge and abs(price_ua - price_uah_ge) / price_uah_ge > 0.15:
+    #         price_rub_ge = price_rub_en
 
     #app_url_kz = parse_steam_search(game_name) + f"?cc=kz"
     app_url_kz = f"https://store.steampowered.com/app/{game_name}" + f"?cc=kz"
@@ -104,6 +106,7 @@ def get_game_prices(game_name, edition_id = None):
         price_rub_kz = price_rub_ua
     else:
         price_uah_kz = float(price_kz.replace('₸', '').replace(' ', '').replace(',', '.').replace('USD', '')) / float(settings["uah_kzt_rate_steam_currency"])
+        
         price_rub_kz = calculate_price_in_rubles(price_uah_kz, settings["rub_uah_rate"], settings["income"])
         if price_ua and price_uah_kz and abs(price_ua - price_uah_kz) / price_uah_kz > 0.15:
             price_rub_kz = price_rub_en
@@ -113,7 +116,7 @@ def get_game_prices(game_name, edition_id = None):
     return {
         "price_rub_ua": price_rub_ua,
         "price_rub_en": price_rub_en,
-        "price_rub_ge": price_rub_ge,
+        # "price_rub_ge": price_rub_ge,
         "price_rub_kz": price_rub_kz,
         "price_ru": price_ru,
         "name_ua": name_ua
@@ -259,7 +262,7 @@ def update_lots(cardinal, bot, message):
             game_prices = get_game_prices(game_name)
             price_for_russia = game_prices["price_rub_ua"]
             price_for_kazakhstan = game_prices["price_rub_kz"]
-            price_for_cis = game_prices["price_rub_ge"]
+            # price_for_cis = game_prices["price_rub_ge"]
         
             if countryCode == 'us':
                 new_price_rub = game_prices["price_rub_en"]
@@ -269,7 +272,7 @@ def update_lots(cardinal, bot, message):
                 elif lot_fields['fields[region]'] == "Казахстан":
                     new_price_rub = price_for_kazakhstan
                 elif lot_fields['fields[region]'] == "СНГ":
-                    new_price_rub = price_for_cis
+                    new_price_rub = game_prices["price_rub_en"]
                 else:
                     new_price_rub = game_prices["price_rub_ua"]
 
@@ -369,16 +372,16 @@ def init_commands(cardinal: Cardinal):
             edition_prices = get_game_prices(edition_id, edition_name)
             bot.send_message(message.chat.id, f"Игра: {edition_prices['name_ua']}\nЦена с долларов: {edition_prices['price_rub_en']} руб.\nЦена с гривен: {edition_prices['price_rub_ua']} руб.")
             msg = bot.send_message(message.chat.id, "Введите название лота:")
-            bot.register_next_step_handler(msg, process_edition_lot_name_step, edition_prices["name_ua"], edition_prices["price_rub_ua"], edition_prices["price_rub_en"], edition_prices["price_rub_ge"], edition_prices["price_rub_kz"], edition_prices["price_ru"])
+            bot.register_next_step_handler(msg, process_edition_lot_name_step, edition_prices["name_ua"], edition_prices["price_rub_ua"], edition_prices["price_rub_en"], edition_prices["price_rub_kz"], edition_prices["price_ru"])
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_edition_lot_name_step(message: Message, edition_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru):
+    def process_edition_lot_name_step(message: Message, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
         try:
             lot_name = message.text
             msg = bot.send_message(message.chat.id, "Введите название издания в FunPay:")
-            bot.register_next_step_handler(msg, process_description_step, edition_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru, lot_name, is_edition = True)
+            bot.register_next_step_handler(msg, process_description_step, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = True)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
@@ -403,21 +406,21 @@ def init_commands(cardinal: Cardinal):
             game_prices = get_game_prices(game_name)
             bot.send_message(message.chat.id, f"Игра: {game_prices['name_ua']}\nЦена с долларов: {game_prices['price_rub_en']} руб.\nЦена с гривен: {game_prices['price_rub_ua']} руб.")
             msg = bot.send_message(message.chat.id, "Введите название лота:")
-            bot.register_next_step_handler(msg, process_lot_name_steap, game_prices["name_ua"], game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_ge"], game_prices["price_rub_kz"], game_prices["price_ru"])
+            bot.register_next_step_handler(msg, process_lot_name_steap, game_prices["name_ua"], game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_kz"], game_prices["price_ru"])
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_lot_name_steap(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru):
+    def process_lot_name_steap(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
         try:
             lot_name = message.text
             msg = bot.send_message(message.chat.id, "Введите название игры в FunPay:")
-            bot.register_next_step_handler(msg, process_description_step, game_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru, lot_name)
+            bot.register_next_step_handler(msg, process_description_step, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_description_step(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_ge, price_rub_kz, price_ru, lot_name, is_edition = False):
+    def process_description_step(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = False):
         try:
             funpay_game_name = message.text
             node_id = get_promo_game_link(lot_name)
@@ -450,11 +453,10 @@ def init_commands(cardinal: Cardinal):
 
             price_for_russia = price_rub_ua
             price_for_kazakhstan = price_rub_kz
-            price_for_cis = price_rub_ge
             if price_rub_ua and price_ru and abs(price_rub_ua - price_ru) / price_ru > 0.15:
                 price_for_russia = price_rub_en
             regions = ["Россия", "Казахстан", "Украина", "СНГ", "Турция", "Аргентина", "Другой регион"]
-            prices = [price_for_russia, price_for_kazakhstan, price_rub_ua, price_for_cis, price_rub_en, price_rub_en, price_rub_en]
+            prices = [price_for_russia, price_for_kazakhstan, price_rub_ua, price_rub_en, price_rub_en, price_rub_en, price_rub_en]
            
             for region, price in zip(regions, prices):
                 if region == 'СНГ':

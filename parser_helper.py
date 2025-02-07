@@ -245,25 +245,29 @@ def parse_steam_edition_page(url, steamLoginSecure = None, edition_id = None):
     found_edition = False
     for wrapper in purchase_game_wrappers:
         edition_title = wrapper.find('h1')
-        if edition_title and edition_id and edition_id.lower() in edition_title.text.lower():
-            # Found the correct edition wrapper
-            app_name = edition_title.text.strip()
-            
-            # Try to find price within this wrapper
-            price_div = wrapper.find('div', class_='game_purchase_price')
-            if not price_div:
-                price_div = wrapper.find('div', class_='discount_final_price')
-            
-            if price_div:
-                price = price_div.text.strip()
-            found_edition = True
-            break
+        if edition_title and edition_id:
+            # Get raw text content ignoring any child elements
+            title_text = ''.join(edition_title.find_all(text=True, recursive=False)).strip()
+            if edition_id.lower() in title_text.lower():
+                # Found the correct edition wrapper
+                app_name = title_text
+                
+                # Try to find price within this wrapper
+                price_div = wrapper.find('div', class_='game_purchase_price')
+                if not price_div:
+                    price_div = wrapper.find('div', class_='discount_final_price')
+                
+                if price_div:
+                    price = price_div.text.strip()
+                found_edition = True
+                break
     
     if not found_edition and purchase_game_wrappers:
         first_wrapper = purchase_game_wrappers[0]
         edition_title = first_wrapper.find('h1')
         if edition_title:
-            app_name = edition_title.text.strip()
+            # Get raw text content ignoring any child elements
+            app_name = ''.join(edition_title.find_all(text=True, recursive=False)).strip()
             
         price_div = first_wrapper.find('div', class_='game_purchase_price')
         if not price_div:
@@ -275,7 +279,7 @@ def parse_steam_edition_page(url, steamLoginSecure = None, edition_id = None):
     if not app_name:
         app_wrapper = soup.find('div', class_='apphub_AppName')
         if app_wrapper:
-            app_name = app_wrapper.text.strip()
+            app_name = ''.join(app_wrapper.find_all(text=True, recursive=False)).strip()
 
     return {
         'название': app_name,
