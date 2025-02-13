@@ -851,6 +851,7 @@ class Cardinal(object):
                 if getattr(func, "plugin_uuid") is None or self.plugins[getattr(func, "plugin_uuid")].enabled:
                     func(*args)
             except Exception as ex:
+                print(ex)
                 text = _("crd_handler_err")
                 try:
                     text += f" {ex.short_str()}"

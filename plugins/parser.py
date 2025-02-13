@@ -460,12 +460,14 @@ def init_commands(cardinal: Cardinal):
            
             for region, price in zip(regions, prices):
                 if region == 'СНГ':
-                    summary = generate_summary_text(region, " ".join(game_name.split(" ")[1:]))
-                    summary_en = generate_summary_text("CIS countries", " ".join(game_name.split(" ")[1:]))
+                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Купить ")) else game_name
+                    summary = generate_summary_text(region, game_title)
+                    summary_en = generate_summary_text("CIS countries", game_title)
                 else:
-                    summary = generate_summary_text(region, " ".join(game_name.split(" ")[1:]))
-                    summary_en = generate_summary_text(translate_text(region, "en"), " ".join(game_name.split(" ")[1:]))
-                description = generate_description_text(region, " ".join(game_name.split(" ")[1:]))
+                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Купить ")) else game_name
+                    summary = generate_summary_text(region, game_title)
+                    summary_en = generate_summary_text(translate_text(region, "en"), game_title)
+                description = generate_description_text(region, game_title)
                 lot_fields = {
                     "active": "on",
                     "deactivate_after_sale": "",
