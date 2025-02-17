@@ -483,6 +483,7 @@ def init_commands(cardinal: Cardinal):
                     "auto_delivery": "",
                     "price": price,
                     "amount": "1000",
+                    "fields[game]": funpay_game_name,
                     "fields[platform]": suitable_platform_option["value"],
                     "fields[method]": "Подарком",
                     "fields[desc][ru]": description,
@@ -490,6 +491,7 @@ def init_commands(cardinal: Cardinal):
                     "fields[region]": region,
                     "secrets": "",
                     "fields[type]": type_of_lot["value"] if type_of_lot else '',
+                    "fields[type2]": type_of_lot["value"] if type_of_lot else '',
                 }
                 if launcher_s is not None:
                     lot_fields["fields[launcher]"] = launcher_s

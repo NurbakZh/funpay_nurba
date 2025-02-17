@@ -1806,6 +1806,8 @@ class Account:
                     errors_dict.update({k: v})
 
             raise exceptions.LotSavingError(response, json_response.get("error"), lot_fields.lot_id, errors_dict)
+        else:
+            return response.json().get("url")
 
     def delete_lot(self, lot_id: int) -> None:
         """

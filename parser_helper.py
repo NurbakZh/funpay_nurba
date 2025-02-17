@@ -124,6 +124,39 @@ def get_promo_game_link(game_title):
     id_after_lots = href.split('/lots/')[-1].split('/')[0]
     return id_after_lots
 
+def get_account_game_link(game_title):
+    headers = {
+        "Accept": "*/*",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-requested-with": "XMLHttpRequest"
+    }
+    url = "https://funpay.com/"
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch the webpage: {response.status_code}")
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    game_element = soup.find('div', class_='game-title', string=game_title)
+    if not game_element:
+        raise Exception(f"Game title '{game_title}' not found")
+
+    promo_game_item = game_element.find_parent('div', class_='promo-game-item')
+    if not promo_game_item:
+        raise Exception(f"Promo game item for '{game_title}' not found")
+
+    li_element = promo_game_item.find('li', string=lambda s: s and "Аккаунты" in s)
+    if not li_element:
+        raise Exception(f"List item with 'Аккаунты' not found")
+
+    a_element = li_element.find('a', href=True)
+    if not a_element:
+        raise Exception(f"Link with 'Аккаунты' not found")
+
+    href = a_element['href']
+    id_after_lots = href.split('/lots/')[-1].split('/')[0]
+    return id_after_lots
+
 def translate_text(text, dest_language):
     url = "https://translate.googleapis.com/translate_a/single"
     params = {

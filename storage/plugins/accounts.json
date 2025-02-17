@@ -1,25 +1,55 @@
 [
     {
         "name": "Mortal Kombat 1",
+        "lot_name": "Mortal Kombat 1",
         "prices": {
-            "1h": 100.0,
-            "3h": 300.0,
-            "6h": 550.0,
-            "1d": 2000.0,
-            "3d": 4000.0,
-            "5d": 5000.0,
-            "7d": 7000.0
+            "1h": {
+                "price": 1000.0,
+                "url": "https://funpay.com/lots/offer?id=38856374"
+            },
+            "3h": {
+                "price": 3000.0,
+                "url": "https://funpay.com/lots/offer?id=38856378"
+            },
+            "6h": {
+                "price": 6000.0,
+                "url": "https://funpay.com/lots/offer?id=38856379"
+            },
+            "1d": {
+                "price": 10000.0,
+                "url": "https://funpay.com/lots/offer?id=38856382"
+            },
+            "3d": {
+                "price": 30000.0,
+                "url": "https://funpay.com/lots/offer?id=38856383"
+            },
+            "5d": {
+                "price": 50000.0,
+                "url": "https://funpay.com/lots/offer?id=38856387"
+            },
+            "7d": {
+                "price": 70000.0,
+                "url": "https://funpay.com/lots/offer?id=38856388"
+            }
         },
         "accounts": [
             {
-                "login": "lol",
-                "password": "lolPass",
-                "codeMail": "ubisoft@gmail.com",
-                "emailLogin": null,
-                "emailPassword": null,
+                "login": "mk1Login",
+                "password": "mk1Pass",
+                "emailLogin": "mk1@gmail.com",
+                "emailPassword": "mk1gmailPass",
+                "isRented": false,
+                "timeOfRent": null
+            },
+            {
+                "login": "qwerty",
+                "password": "qwerty",
+                "emailLogin": "qwerty",
+                "emailPassword": "qwerty",
                 "isRented": false,
                 "timeOfRent": null
             }
-        ]
+        ],
+        "edition_name": "Standard Edition"
     }
 ]
