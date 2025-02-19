@@ -1,6 +1,5 @@
 [
     {
-<<<<<<< Updated upstream
         "game_name": "Civilization 6",
         "lot_name": "Civilization",
         "node_id": "2697",
@@ -48,7 +47,6 @@
         "node_id": "2697",
         "region": "Другой регион",
         "price": 6415.52
-<<<<<<< Updated upstream
     },
     {
         "game_name": "Gold Edition",
@@ -147,8 +145,8 @@
         "node_id": "1408",
         "region": "Другой регион",
         "price": 5329.16
-=======
-=======
+    },
+    {
         "game_name": "Baldur's Gate 3",
         "lot_name": "Baldur's Gate 3",
         "node_id": "1597",
@@ -357,7 +355,5 @@
         "node_id": "2630",
         "region": "Аргентина",
         "price": 3219.73
->>>>>>> Stashed changes
->>>>>>> Stashed changes
     }
 ]
