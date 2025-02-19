@@ -16,7 +16,7 @@ from tg_bot import static_keyboards as skb
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Dict, List, Optional
 from parser_helper import get_account_game_link
-from parser import generate_random_id, translate_text
+from plugins.parser import generate_random_id, translate_text
 
 if TYPE_CHECKING:
     from cardinal import Cardinal
@@ -272,7 +272,7 @@ def init_commands(cardinal: Cardinal):
 
                 lot = FunPayAPI.types.LotFields(0, lot_fields)
                 url = create_new_lot(cardinal.account, lot)
-                bot.send_message(message.chat.id, f"Создан лот для {game.name} аренды на {readable_duration}")
+                bot.send_message(message.chat.id, f"✅ Создан лот {game.name} для аренды на {readable_duration}")
             profile = cardinal.account.get_user(cardinal.account.id)
             lots = profile.get_lots()
             counter = 6
@@ -282,7 +282,7 @@ def init_commands(cardinal: Cardinal):
                     counter -= 1
             edit_game(game.lot_name, {"prices": game.prices})
         except Exception as e:
-            bot.send_message(message.chat.id, f"Ошибка при создании лота: {e}")
+            bot.send_message(message.chat.id, f"❌ Ошибка при создании лота: {e}")
 
     def update_lot(message: Message, game: Game):
         try:
@@ -291,8 +291,12 @@ def init_commands(cardinal: Cardinal):
                 readable_duration = duration_names.get(duration, duration)
                 game_id = price_data["url"].split("=")[-1]
                 lot_fields = cardinal.account.get_lots_field(node_id, game_id)
-                lot_fields["active"] = "on"
-                lot_fields["amount"] = len(game.accounts)
+                if len(game.accounts) > 0:
+                    lot_fields["active"] = "on"
+                    lot_fields["amount"] = len(game.accounts)
+                else:
+                    lot_fields["active"] = "off"
+                    lot_fields["amount"] = 0
                 lot = FunPayAPI.types.LotFields(game_id, lot_fields)
                 final_lot_id = lot.lot_id
                 fields = lot.fields
@@ -306,52 +310,51 @@ def init_commands(cardinal: Cardinal):
             bot.send_message(message.chat.id, f"Ошибка при обновлении лота: {e}")
 
     def handle_add_account(message: Message):
-        msg = bot.send_message(message.chat.id, "Введите логин аккаунта Steam:")
+        msg = bot.send_message(message.chat.id, "�� Введите логин аккаунта Steam:")
         bot.register_next_step_handler(msg, process_login_step)
 
     def process_login_step(message: Message):
         login = message.text
-        msg = bot.send_message(message.chat.id, "Введите пароль аккаунта Steam:")
+        msg = bot.send_message(message.chat.id, "🔑 Введите пароль аккаунта Steam:")
         bot.register_next_step_handler(msg, process_password_step, login)
 
     def process_password_step(message: Message, login: str):
         password = message.text
-        msg = bot.send_message(message.chat.id, "Введите логин от почты:")
+        msg = bot.send_message(message.chat.id, "📧 Введите логин от почты:")
         bot.register_next_step_handler(msg, process_email_login_step, login, password)
 
     def process_email_login_step(message: Message, login: str, password: str):
         email_login = message.text
-        msg = bot.send_message(message.chat.id, "Введите пароль от почты:")
+        msg = bot.send_message(message.chat.id, "🔐 Введите пароль от почты:")
         bot.register_next_step_handler(msg, process_email_password_step, login, password, email_login)
 
     def process_email_password_step(message: Message, login: str, password: str, email_login: str):
         email_password = message.text
-        msg = bot.send_message(message.chat.id, "Введите название лота в FunPay:")
+        msg = bot.send_message(message.chat.id, "📝 Введите название лота в FunPay:")
         bot.register_next_step_handler(msg, process_lot_step, login, password, email_login, email_password)
 
     def process_lot_step(message: Message, login: str, password: str, email_login: str, email_password: str):
         lot_name = message.text
-        msg = bot.send_message(message.chat.id, "Введите название игры в FunPay:")
+        msg = bot.send_message(message.chat.id, "🎯 Введите название игры в FunPay:")
         bot.register_next_step_handler(msg, process_game_step, login, password, email_login, email_password, lot_name)
 
     def process_game_step(message: Message, login: str, password: str, email_login: str, email_password: str, lot_name: str):
         game_name = message.text
-        msg = bot.send_message(message.chat.id, "Введите название издания игры в FunPay:")
+        msg = bot.send_message(message.chat.id, "📌 Введите название издания игры в FunPay:")
         bot.register_next_step_handler(msg, process_edition_step, login, password, email_login, email_password, lot_name, game_name)
 
     def process_edition_step(message: Message, login: str, password: str, email_login: str, email_password: str, lot_name: str, game_name: str):
         edition_name = message.text
-        msg = bot.send_message(message.chat.id, "Введите цену аренды за 1 час (в рублях):")
-        bot.register_next_step_handler(msg, process_price_1h_step, login, password, email_login, email_password, lot_name, game_name, edition_name, {})
+        msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 1 час (в рублях):")
+        bot.register_next_step_handler(msg, process_price_1h_step, login, password, email_login, email_password, lot_name, game_name, edition_name)
 
-    def process_price_1h_step(message: Message, login: str, password: str, email_login: str, email_password: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_price_1h_step(message: Message, login: str, password: str, email_login: str, email_password: str, lot_name: str, game_name: str, edition_name: str):
         try:
-            price_1h = float(message.text) 
-            prices["1h"] = {"price": price_1h, "url": ""}
-            msg = bot.send_message(message.chat.id, "Введите цену аренды за 3 часа (в рублях):")
+            price_1h = str(float(message.text))
+            msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 3 часа (в рублях):")
             bot.register_next_step_handler(msg, process_price_3h_step, login, password, email_login, email_password, lot_name, game_name, edition_name, {"1h": {"price": price_1h, "url": ""}})
         except ValueError:
-            bot.send_message(message.chat.id, "Неверный формат, пожалуйста начните заново используя /add_account")
+            bot.send_message(message.chat.id, "❌ Неверный формат, пожалуйста начните заново используя /add_account")
 
     def process_price_3h_step(message: Message, login: str, password: str, email_login: str, email_password: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         try:
@@ -416,46 +419,46 @@ def init_commands(cardinal: Cardinal):
                 games.append(game)
             
             save_games(games)
+            bot.send_message(message.chat.id, f"✅ Аккаунт успешно добавлен для игры {game_name}, создаю лоты...")
             create_lot(message, game)
-            bot.send_message(message.chat.id, f"Аккаунт успешно добавлен для игры {game_name}")
         except Exception as e:
-            bot.send_message(message.chat.id, f"Ошибка при добавлении аккаунта: {e}")
+            bot.send_message(message.chat.id, f"❌ Ошибка при добавлении аккаунта: {e}")
 
     def handle_add_account_to_game(message: Message):
         games = load_games()
         if not games:
-            bot.send_message(message.chat.id, "В базе данных нет игр. Сначала добавьте игру через /add_account")
+            bot.send_message(message.chat.id, "❌ В базе данных нет игр. Сначала добавьте игру через /add_account")
             return
 
         keyboard = K()
         for game in games:
             keyboard.add(B(game.name, callback_data=f"select_game:{game.name}"))
         
-        bot.send_message(message.chat.id, "Выберите игру:", reply_markup=keyboard)
+        bot.send_message(message.chat.id, "🎮 Выберите игру:", reply_markup=keyboard)
 
     def handle_get_info_about_game(message: Message):
         games = load_games()
         if not games:
-            bot.send_message(message.chat.id, "В базе данных нет игр. Сначала добавьте игру через /add_account")
+            bot.send_message(message.chat.id, "❌ В базе данных нет игр. Сначала добавьте игру через /add_account")
             return
 
         keyboard = K()
         for game in games:
             keyboard.add(B(game.name, callback_data=f"info_game:{game.name}"))
         
-        bot.send_message(message.chat.id, "Выберите игру для просмотра информации:", reply_markup=keyboard)
+        bot.send_message(message.chat.id, "🎮 Выберите игру для просмотра информации:", reply_markup=keyboard)
 
     def handle_delete_account_from_game(message: Message):
         games = load_games()
         if not games:
-            bot.send_message(message.chat.id, "В базе данных нет игр. Сначала добавьте игру через /add_account")
+            bot.send_message(message.chat.id, "❌ В базе данных нет игр. Сначала добавьте игру через /add_account")
             return
 
         keyboard = K()
         for game in games:
             keyboard.add(B(game.name, callback_data=f"delete_from_game:{game.name}"))
         
-        bot.send_message(message.chat.id, "Выберите игру:", reply_markup=keyboard)
+        bot.send_message(message.chat.id, "🎮 Выберите игру:", reply_markup=keyboard)
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith("select_game:"))
     def handle_message(call):
@@ -485,25 +488,27 @@ def init_commands(cardinal: Cardinal):
         password = message.text
         msg = bot.send_message(message.chat.id, "Введите логин от почты:")
         bot.register_next_step_handler(msg, lambda m: process_email_login_for_existing_game_step(m, game_name, login, password))
-
     def process_email_login_for_existing_game_step(message: Message, game_name: str, login: str, password: str):
         email_login = message.text
         msg = bot.send_message(message.chat.id, "Введите пароль от почты:")
-        bot.register_next_step_handler(msg, add_account_to_existing_game, game_name, login, password, email_login)
+        bot.register_next_step_handler(msg, lambda m: add_account_to_existing_game(m, game_name, login, password, email_login))
 
     def add_account_to_existing_game(message: Message, game_name: str, login: str, password: str, email_login: str):
         email_password = message.text
         games = load_games()
         game = next((g for g in games if g.name == game_name), None)
         
-        if game:
-            account = Account(login, password, email_login, email_password)
-            game.accounts.append(account)
-            save_games(games)
-            bot.send_message(message.chat.id, f"Аккаунт успешно добавлен к игре {game_name}")
-            update_lot(message, game)
-        else:
-            bot.send_message(message.chat.id, f"Игра {game_name} не найдена в базе данных")
+        try:
+            if game:
+                account = Account(login, password, email_login, email_password)
+                game.accounts.append(account)
+                save_games(games)
+                bot.send_message(message.chat.id, f"Аккаунт успешно добавлен к игре {game_name}")
+                update_lot(message, game)
+            else:
+                bot.send_message(message.chat.id, f"❌ Игра {game_name} не найдена в базе данных")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ Ошибка при добавлении аккаунта: {e}")
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith(("info_game:", "delete_from_game:")))
     def handle_game_callbacks(call):
@@ -549,6 +554,7 @@ def init_commands(cardinal: Cardinal):
             game.accounts = [acc for acc in game.accounts if acc.login != login]
             save_games(games)
             bot.send_message(call.message.chat.id, f"Аккаунт {login} успешно удален из игры {game_name}")
+            update_lot(call.message, game)
         else:
             bot.send_message(call.message.chat.id, "Игра не найдена")
 

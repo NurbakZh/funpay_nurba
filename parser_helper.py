@@ -434,5 +434,92 @@ def check_for_last():
     mail.logout()
     return "noCodeFound"
 
+def check_for_last_with_account(account: str):
+    # Load accounts from JSON file
+    with open('storage/plugins/accounts.json', 'r') as f:
+        accounts = json.load(f)
+    
+    # Find account details
+    account_details = next((acc for acc in accounts if acc['login'] == account), None)
+    if not account_details:
+        print(f"Account {account} not found in accounts.json")
+        return
+        
+    EMAIL_ACCOUNT = account_details.get('email')
+    EMAIL_PASSWORD = account_details.get('email_password')
+
+    if EMAIL_ACCOUNT is None or EMAIL_PASSWORD is None:
+        print("Email credentials not found for account.")
+        return
+
+    mail = imaplib.IMAP4_SSL("imap.gmail.com")
+    mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
+    mail.select("inbox")
+
+    term = u"проверочный код Rockstar Games".encode('utf-8')
+    term2 = u"Rockstar Games verification code".encode('utf-8')
+
+    mail.literal = term
+    result, data = mail.search("utf-8", 'SUBJECT')
+    mail.literal = term2
+    result2, data2 = mail.search("utf-8", 'SUBJECT')
+
+    if result != "OK" and result2 != "OK":
+        print("No emails found matching the criteria.")
+        return
+
+    email_ids = data[0].split() if data[0] else []
+    email_ids2 = data2[0].split() if data2[0] else []
+
+    if not email_ids and not email_ids2:
+        print("No emails found matching the criteria")
+        mail.logout()
+        return
+
+    # Get the last email from each search result
+    latest_emails = []
+    
+    if email_ids:
+        last_email_id = email_ids[-1]
+        result, msg_data = mail.fetch(last_email_id, "(RFC822)")
+        email_msg = email.message_from_bytes(msg_data[0][1])
+        latest_emails.append((email_msg, email.utils.parsedate_to_datetime(email_msg['Date'])))
+
+    if email_ids2:
+        last_email_id2 = email_ids2[-1]
+        result2, msg_data2 = mail.fetch(last_email_id2, "(RFC822)")
+        email_msg2 = email.message_from_bytes(msg_data2[0][1])
+        latest_emails.append((email_msg2, email.utils.parsedate_to_datetime(email_msg2['Date'])))
+
+    # Sort emails by date and get the most recent one
+    latest_emails.sort(key=lambda x: x[1], reverse=True)
+    if not latest_emails:
+        mail.logout()
+        return
+
+    most_recent_msg = latest_emails[0][0]
+
+    # Process the most recent email
+    for part in most_recent_msg.walk():
+        if part.get_content_type() == "text/plain":
+            body = part.get_payload(decode=True)
+            try:
+                body = body.decode()
+            except UnicodeDecodeError:
+                body = base64.b64decode(body).decode()
+            
+            # Extract the verification code
+            code_match = re.search(r'\b\d{6}\b', body)
+            if code_match:
+                verification_code = code_match.group(0)
+                mail.logout()
+                return verification_code
+            
+            mail.logout()
+            return "noCodeFound"
+
+    mail.logout()
+    return "noCodeFound"
+
 #if __name__ == "__main__":
 #   main()

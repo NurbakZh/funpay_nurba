@@ -18,12 +18,12 @@ from Utils import cardinal_tools
 from locales.localizer import Localizer
 from threading import Thread
 import configparser
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import time
 import re
-from parser_helper import check_for_last
-
+from parser_helper import check_for_last, check_for_last_with_account
+from plugins.steamAccounts import load_games, Account, Game, save_games, duration_names
 
 LAST_STACK_ID = ""
 MSG_LOG_LAST_STACK_ID = ""
@@ -98,12 +98,57 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
     logger.info(_("log_new_msg", chat_name, chat_id))
     for index, event in enumerate(e.stack.get_stack()):
         username, text = event.message.author, event.message.text or event.message.image_link
-        print(text)
-        if text == "!social_club":
+        
+        if text and text.startswith("!arenda"):
+            try:
+                game_name = text.split("!arenda ")[1].strip()
+                games = load_games()
+                game = next((g for g in games if g.name.lower() == game_name.lower()), None)
+                
+                if not game:
+                    text = f"❌ Игра {game_name} не найдена"
+                else:
+                    available_accounts = [acc for acc in game.accounts if not acc.is_rented]
+                    if not available_accounts:
+                        text = f"❌ Нет доступных аккаунтов для игры {game_name}"
+                    else:
+                        text = f"""✅ Доступные аккаунты для {game_name}:
+
+Количество: {len(available_accounts)} шт.
+
+Доступные периоды аренды:
+"""
+                        for duration, details in game.prices.items():
+                            readable_duration = duration_names.get(duration, duration)
+                            text += f"• {readable_duration}\n"
+                            
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.info(f"Получил запрос на список аккаунтов {game_name} от пользователя {chat_name} (CID: {chat_id})")
+                break
+            except Exception as e:
+                logger.error(f"Ошибка при обработке команды !arenda: {str(e)}")
+                text = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                break
+
+        elif text and text.startswith("!get_code"):
+            try:
+                account = text.split("!get_code ")[1].strip()
+                text = f"Ваш код верификации/Your verification code: {check_for_last_with_account(account)}"
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.info(f"Получил запрос на код Steam Guard для аккаунта {account} от пользователя {chat_name} (CID: {chat_id})")
+                break
+            except:
+                text = "❌ Неверный формат команды. Используйте: !get_code <логин>"
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                break
+
+        elif text == "!social_club":
             text = f"Ваш код верификации/Your verification code: {check_for_last()}"
             Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
             logger.info(f"Получил запрос на код social club от пользователя {chat_name} (CID: {chat_id})")
             break
+
         for line_index, line in enumerate(text.split("\n")):
             if not index and not line_index:
                 logger.info(f"$MAGENTA└───> $YELLOW{username}: $CYAN{line}")
@@ -544,40 +589,150 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
            daemon=True).start()
 
 
+def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_login: str, game_name: str, duration: str):
+    """
+    Waits for rental expiration and handles post-rental actions.
+    """
+    # Duration mapping
+    duration_map = {
+        "1 час": 3600,
+        "2 часа": 7200,
+        "3 часа": 10800,
+        "6 часов": 21600,
+        "12 часов": 43200,
+        "1 день": 86400,
+        "2 дня": 172800,
+        "3 дня": 259200,
+        "7 дней": 604800
+    }
+    
+    seconds = duration_map.get(duration)
+    if not seconds:
+        logger.error(f"Invalid duration format: {duration}")
+        return
+
+    expiration_time = datetime.now() + timedelta(seconds=seconds)
+    logger.info(f"Started rental timer for {account_login} until {expiration_time}")
+    
+    while datetime.now() < expiration_time:
+        time.sleep(60)  # Check every minute
+        
+    # Send expiration message to user
+    expiration_text = f"""⚠️ Срок аренды истек!
+
+🎮 Игра: {game_name}
+👤 Аккаунт: {account_login}
+
+Доступ к аккаунту прекращен. Спасибо за использование нашего сервиса!"""
+
+    c.send_message(chat_id, expiration_text, username)
+    
+    # Update account status
+    games = load_games()
+    game = next((g for g in games if g.name == game_name), None)
+    if game:
+        account = next((acc for acc in game.accounts if acc.login == account_login), None)
+        if account:
+            account.is_rented = False
+            save_games(games)
+            
+    # Send notification to admin
+    if c.telegram:
+        admin_text = f"""🔄 Аренда завершена
+
+🎮 Игра: {game_name}
+👤 Аккаунт: {account_login}
+👨 Арендатор: {username}
+
+⚠️ Необходимо сменить пароль!"""
+        
+        c.telegram.send_notification(admin_text, None)
+
+
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     chat_id = c.account.get_chat_by_name(e.order.buyer_username).id
     cfg_obj = getattr(e, "config_section_obj")
-    delivery_text = cardinal_tools.format_order_text(cfg_obj["response"], e.order)
 
-    amount, goods_left, products = 1, -1, []
-    try:
-        if file_name := cfg_obj.get("productsFileName"):
-            if c.multidelivery_enabled and not cfg_obj.getboolean("disableMultiDelivery"):
-                amount = e.order.amount if e.order.amount else 1
-            products, goods_left = cardinal_tools.get_products(f"storage/products/{file_name}", amount)
-            delivery_text = delivery_text.replace("$product", "\n".join(products).replace("\\n", "\n"))
-    except Exception as exc:
-        logger.error(
-            f"Произошла ошибка при получении товаров для заказа $YELLOW{e.order.id}: {str(exc)}$RESET")  # locale
-        logger.debug("TRACEBACK", exc)
-        setattr(e, "error", 1)
-        setattr(e, "error_text",
-                f"Произошла ошибка при получении товаров для заказа {e.order.id}: {str(exc)}")  # locale
-        return
+    if("❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description):
+        description = e.order.description
+        game_name = description.split("【")[1].split("】")[0]
+        duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
 
-    result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
-    if not result:
-        logger.error(f"Не удалось отправить товар для ордера $YELLOW{e.order.id}$RESET.")  # locale
-        setattr(e, "error", 1)
-        setattr(e, "error_text", f"Не удалось отправить сообщение с товаром для заказа {e.order.id}.")  # locale
-        if file_name and products:
-            cardinal_tools.add_products(f"storage/products/{file_name}", products, at_zero_position=True)
-    else:
-        logger.info(f"Товар для заказа {e.order.id} выдан.")  # locale
-        setattr(e, "delivered", True)
-        setattr(e, "delivery_text", delivery_text)
-        setattr(e, "goods_delivered", amount)
-        setattr(e, "goods_left", goods_left)
+        games = load_games()
+        game = next((g for g in games if g.name == game_name), None)
+
+        if not game:
+            logger.error(f"Game {game_name} not found in database for order {e.order.id}")
+            return
+
+        available_account = next((acc for acc in game.accounts if not acc.is_rented), None)
+        
+        if not available_account:
+            logger.error(f"No available accounts for game {game_name} for order {e.order.id}")
+            return
+
+        available_account.is_rented = True
+        save_games(games)
+
+        delivery_text = f"""💫 Данные для входа в аккаунт:
+
+📧 Логин Steam: {available_account.login}
+🔑 Пароль Steam: {available_account.password}
+
+⏰ Срок аренды: {duration}
+
+📱 Для получения кода Steam Guard отправьте команду:
+
+!get_code {available_account.login}
+
+❗️ Запрещено менять данные и передавать их третьим лицам
+❗️ Используйте аккаунт строго в рамках правил Steam"""
+
+        result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
+
+        if not result:
+            logger.error(f"Failed to send account details for order {e.order.id}")
+            available_account.is_rented = False 
+            save_games(games)
+        else:
+            logger.info(f"Account details delivered for order {e.order.id}")
+            # Start expiration timer thread
+            Thread(target=check_rental_expiration,
+                   args=(c, chat_id, e.order.buyer_username, available_account.login, game_name, duration),
+                   daemon=True).start()
+    else:    
+        delivery_text = cardinal_tools.format_order_text(cfg_obj["response"], e.order)
+
+        amount, goods_left, products = 1, -1, []
+
+        try:
+            if file_name := cfg_obj.get("productsFileName"):
+                if c.multidelivery_enabled and not cfg_obj.getboolean("disableMultiDelivery"):
+                    amount = e.order.amount if e.order.amount else 1
+                products, goods_left = cardinal_tools.get_products(f"storage/products/{file_name}", amount)
+                delivery_text = delivery_text.replace("$product", "\n".join(products).replace("\\n", "\n"))
+        except Exception as exc:
+            logger.error(
+                f"Произошла ошибка при получении товаров для заказа $YELLOW{e.order.id}: {str(exc)}$RESET")  # locale
+            logger.debug("TRACEBACK", exc)
+            setattr(e, "error", 1)
+            setattr(e, "error_text",
+                    f"Произошла ошибка при получении товаров для заказа {e.order.id}: {str(exc)}")  # locale
+            return
+
+        result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
+        if not result:
+            logger.error(f"Не удалось отправить товар для ордера $YELLOW{e.order.id}$RESET.")  # locale
+            setattr(e, "error", 1)
+            setattr(e, "error_text", f"Не удалось отправить сообщение с товаром для заказа {e.order.id}.")  # locale
+            if file_name and products:
+                cardinal_tools.add_products(f"storage/products/{file_name}", products, at_zero_position=True)
+        else:
+            logger.info(f"Товар для заказа {e.order.id} выдан.")  # locale
+            setattr(e, "delivered", True)
+            setattr(e, "delivery_text", delivery_text)
+            setattr(e, "goods_delivered", amount)
+            setattr(e, "goods_left", goods_left)
 
 
 def deliver_product_handler(c: Cardinal, e: NewOrderEvent, *args) -> None:

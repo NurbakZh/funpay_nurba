@@ -5,47 +5,39 @@
         "prices": {
             "1h": {
                 "price": 1000.0,
-                "url": "https://funpay.com/lots/offer?id=38856374"
+                "url": "https://funpay.com/lots/offer?id=38941351"
             },
             "3h": {
                 "price": 3000.0,
-                "url": "https://funpay.com/lots/offer?id=38856378"
+                "url": "https://funpay.com/lots/offer?id=38941353"
             },
             "6h": {
                 "price": 6000.0,
-                "url": "https://funpay.com/lots/offer?id=38856379"
+                "url": "https://funpay.com/lots/offer?id=38941356"
             },
             "1d": {
                 "price": 10000.0,
-                "url": "https://funpay.com/lots/offer?id=38856382"
+                "url": "https://funpay.com/lots/offer?id=38941357"
             },
             "3d": {
                 "price": 30000.0,
-                "url": "https://funpay.com/lots/offer?id=38856383"
+                "url": "https://funpay.com/lots/offer?id=38941359"
             },
             "5d": {
                 "price": 50000.0,
-                "url": "https://funpay.com/lots/offer?id=38856387"
+                "url": "https://funpay.com/lots/offer?id=38941360"
             },
             "7d": {
                 "price": 70000.0,
-                "url": "https://funpay.com/lots/offer?id=38856388"
+                "url": "https://funpay.com/lots/offer?id=38941361"
             }
         },
         "accounts": [
             {
-                "login": "mk1Login",
-                "password": "mk1Pass",
-                "emailLogin": "mk1@gmail.com",
-                "emailPassword": "mk1gmailPass",
-                "isRented": false,
-                "timeOfRent": null
-            },
-            {
-                "login": "qwerty",
-                "password": "qwerty",
-                "emailLogin": "qwerty",
-                "emailPassword": "qwerty",
+                "login": "loginlogin",
+                "password": "passpass",
+                "emailLogin": "loginmail",
+                "emailPassword": "pasmail",
                 "isRented": false,
                 "timeOfRent": null
             }
