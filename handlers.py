@@ -535,13 +535,17 @@ def log_new_order_handler(c: Cardinal, e: NewOrderEvent, *args):
 
 
 def setup_event_attributes_handler(c: Cardinal, e: NewOrderEvent, *args):
-    config_section_name = None
-    config_section_obj = None
-    for lot_name in c.AD_CFG:
-        if lot_name in e.order.description:
-            config_section_obj = c.AD_CFG[lot_name]
-            config_section_name = lot_name
-            break
+    if "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
+        config_section_name = "Steam_arenda"
+        config_section_obj = {"Steam_arenda": "Steam_arenda"}
+    else:
+        config_section_name = None
+        config_section_obj = None
+        for lot_name in c.AD_CFG:
+            if lot_name in e.order.description:
+                config_section_obj = c.AD_CFG[lot_name]
+                config_section_name = lot_name
+                break
 
     attributes = {"config_section_name": config_section_name, "config_section_obj": config_section_obj,
                   "delivered": False, "delivery_text": None, "goods_delivered": 0, "goods_left": None,
@@ -565,12 +569,12 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
         return
     if e.order.buyer_username in c.blacklist and c.MAIN_CFG["BlockList"].getboolean("blockNewOrderNotification"):
         return
-    if not (config_obj := getattr(e, "config_section_obj")) and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
+    if not (config_obj := getattr(e, "config_section_obj")):
         delivery_info = _("ntfc_new_order_not_in_cfg")
     else:
-        if not c.autodelivery_enabled:
+        if not c.autodelivery_enabled and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
             delivery_info = _("ntfc_new_order_ad_disabled")
-        elif config_obj.getboolean("disable"):
+        elif "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and config_obj.getboolean("disable"):
             delivery_info = _("ntfc_new_order_ad_disabled_for_lot")
         elif c.bl_delivery_enabled and e.order.buyer_username in c.blacklist:
             delivery_info = _("ntfc_new_order_user_blocked")
@@ -646,10 +650,11 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
 
 
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
+    print(e.order.description)
     chat_id = c.account.get_chat_by_name(e.order.buyer_username).id
     cfg_obj = getattr(e, "config_section_obj")
 
-    if("❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description):
+    if "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
         description = e.order.description
         game_name = description.split("【")[1].split("】")[0]
         duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
@@ -676,10 +681,12 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 🔑 Пароль Steam: {available_account.password}
 
 ⏰ Срок аренды: {duration}
+{f'''
+📱 Для получения кода Social Club отправьте команду:
 
-📱 Для получения кода Steam Guard отправьте команду:
+!get_code {available_account.login}''' if available_account.emailLogin != "none" else ""}
 
-!get_code {available_account.login}
+{f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
 
 ❗️ Запрещено менять данные и передавать их третьим лицам
 ❗️ Используйте аккаунт строго в рамках правил Steam"""
@@ -741,9 +748,11 @@ def deliver_product_handler(c: Cardinal, e: NewOrderEvent, *args) -> None:
         logger.info(f"Пользователь {e.order.buyer_username} находится в ЧС и включена блокировка автовыдачи. "
                     f"$YELLOW(ID: {e.order.id})$RESET")  # locale
         return
-    if (config_section_obj := getattr(e, "config_section_obj")) is None and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
+    # Checks if the order has a valid config section object. If not, returns early.
+    # The config section object contains delivery settings for the specific lot type.
+    if (config_section_obj := getattr(e, "config_section_obj")) is None:
         return
-    if config_section_obj.getboolean("disable"):
+    if "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and config_section_obj.getboolean("disable"):
         logger.info(f"Для лота \"{e.order.description}\" отключена автовыдача.")  # locale
         return
 
