@@ -115,13 +115,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                         text = f"""✅ Доступные аккаунты для {game_name}:
 
 Количество: {len(available_accounts)} шт.
-
-Доступные периоды аренды:
 """
-                        for duration, details in game.prices.items():
-                            readable_duration = duration_names.get(duration, duration)
-                            text += f"• {readable_duration}\n"
-                            
                 Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
                 logger.info(f"Получил запрос на список аккаунтов {game_name} от пользователя {chat_name} (CID: {chat_id})")
                 break
@@ -555,8 +549,10 @@ def setup_event_attributes_handler(c: Cardinal, e: NewOrderEvent, *args):
     for i in attributes:
         setattr(e, i, attributes[i])
 
-    if config_section_obj is None:
+    if config_section_obj is None and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
         logger.info("Лот не найден в конфиге авто-выдачи!")  # todo
+    elif "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
+        logger.info("Лот на аренду найден в конфиге авто-выдачи!")  # todo
     else:
         logger.info("Лот найден в конфиге авто-выдачи!")  # todo
 
@@ -745,8 +741,7 @@ def deliver_product_handler(c: Cardinal, e: NewOrderEvent, *args) -> None:
         logger.info(f"Пользователь {e.order.buyer_username} находится в ЧС и включена блокировка автовыдачи. "
                     f"$YELLOW(ID: {e.order.id})$RESET")  # locale
         return
-
-    if (config_section_obj := getattr(e, "config_section_obj")) is None:
+    if (config_section_obj := getattr(e, "config_section_obj")) is None and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
         return
     if config_section_obj.getboolean("disable"):
         logger.info(f"Для лота \"{e.order.description}\" отключена автовыдача.")  # locale
