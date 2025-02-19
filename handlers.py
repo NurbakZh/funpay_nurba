@@ -686,7 +686,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 {f'''
 📱 Для получения кода Social Club отправьте команду:
 
-!get_code {available_account.login}''' if available_account.emailLogin != "none" else ""}
+!get_code {available_account.login}''' if available_account.email_login != "none" else ""}
 
 {f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
 
@@ -704,7 +704,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             logger.info(f"Account details delivered for order {e.order.id}")
             # Start expiration timer thread
             Thread(target=check_rental_expiration,
-                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.emailLogin, game_name, duration),
+                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
                    daemon=True).start()
     else:    
         delivery_text = cardinal_tools.format_order_text(cfg_obj["response"], e.order)
