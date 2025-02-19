@@ -565,7 +565,7 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
         return
     if e.order.buyer_username in c.blacklist and c.MAIN_CFG["BlockList"].getboolean("blockNewOrderNotification"):
         return
-    if not (config_obj := getattr(e, "config_section_obj")):
+    if not (config_obj := getattr(e, "config_section_obj")) and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
         delivery_info = _("ntfc_new_order_not_in_cfg")
     else:
         if not c.autodelivery_enabled:
