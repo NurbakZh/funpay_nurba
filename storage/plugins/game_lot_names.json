@@ -1,0 +1,363 @@
+[
+    {
+<<<<<<< Updated upstream
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
+        "region": "Россия",
+        "price": 1339.02
+    },
+    {
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
+        "region": "Казахстан",
+        "price": 1456.96
+    },
+    {
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
+        "region": "Украина",
+        "price": 1339.02
+    },
+    {
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
+        "region": "СНГ",
+        "price": 6415.52
+    },
+    {
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
+        "region": "Турция",
+        "price": 6415.52
+    },
+    {
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
+        "region": "Аргентина",
+        "price": 6415.52
+    },
+    {
+        "game_name": "Civilization 6",
+        "lot_name": "Civilization",
+        "node_id": "2697",
+        "region": "Другой регион",
+        "price": 6415.52
+<<<<<<< Updated upstream
+    },
+    {
+        "game_name": "Gold Edition",
+        "lot_name": "Avatar: Frontiers of Pandora",
+        "node_id": "1854",
+        "region": "Россия",
+        "price": 6024.43
+    },
+    {
+        "game_name": "Gold Edition",
+        "lot_name": "Avatar: Frontiers of Pandora",
+        "node_id": "1854",
+        "region": "Казахстан",
+        "price": 11725.17
+    },
+    {
+        "game_name": "Gold Edition",
+        "lot_name": "Avatar: Frontiers of Pandora",
+        "node_id": "1854",
+        "region": "Украина",
+        "price": 6024.43
+    },
+    {
+        "game_name": "Gold Edition",
+        "lot_name": "Avatar: Frontiers of Pandora",
+        "node_id": "1854",
+        "region": "СНГ",
+        "price": 11725.17
+    },
+    {
+        "game_name": "Gold Edition",
+        "lot_name": "Avatar: Frontiers of Pandora",
+        "node_id": "1854",
+        "region": "Турция",
+        "price": 11725.17
+    },
+    {
+        "game_name": "Gold Edition",
+        "lot_name": "Avatar: Frontiers of Pandora",
+        "node_id": "1854",
+        "region": "Аргентина",
+        "price": 11725.17
+    },
+    {
+        "game_name": "Gold Edition",
+        "lot_name": "Avatar: Frontiers of Pandora",
+        "node_id": "1854",
+        "region": "Другой регион",
+        "price": 11725.17
+    },
+    {
+        "game_name": "Expansion Pass",
+        "lot_name": "Age of Wonders 4",
+        "node_id": "1408",
+        "region": "Россия",
+        "price": 3103.56
+    },
+    {
+        "game_name": "Expansion Pass",
+        "lot_name": "Age of Wonders 4",
+        "node_id": "1408",
+        "region": "Казахстан",
+        "price": 3349.48
+    },
+    {
+        "game_name": "Expansion Pass",
+        "lot_name": "Age of Wonders 4",
+        "node_id": "1408",
+        "region": "Украина",
+        "price": 3103.56
+    },
+    {
+        "game_name": "Expansion Pass",
+        "lot_name": "Age of Wonders 4",
+        "node_id": "1408",
+        "region": "СНГ",
+        "price": 5329.16
+    },
+    {
+        "game_name": "Expansion Pass",
+        "lot_name": "Age of Wonders 4",
+        "node_id": "1408",
+        "region": "Турция",
+        "price": 5329.16
+    },
+    {
+        "game_name": "Expansion Pass",
+        "lot_name": "Age of Wonders 4",
+        "node_id": "1408",
+        "region": "Аргентина",
+        "price": 5329.16
+    },
+    {
+        "game_name": "Expansion Pass",
+        "lot_name": "Age of Wonders 4",
+        "node_id": "1408",
+        "region": "Другой регион",
+        "price": 5329.16
+=======
+=======
+        "game_name": "Baldur's Gate 3",
+        "lot_name": "Baldur's Gate 3",
+        "node_id": "1597",
+        "region": "Россия",
+        "price": 1851.94
+    },
+    {
+        "game_name": "Baldur's Gate 3",
+        "lot_name": "Baldur's Gate 3",
+        "node_id": "1597",
+        "region": "Казахстан",
+        "price": 1851.94
+    },
+    {
+        "game_name": "Baldur's Gate 3",
+        "lot_name": "Baldur's Gate 3",
+        "node_id": "1597",
+        "region": "Украина",
+        "price": 1851.94
+    },
+    {
+        "game_name": "Baldur's Gate 3",
+        "lot_name": "Baldur's Gate 3",
+        "node_id": "1597",
+        "region": "СНГ",
+        "price": 1851.94
+    },
+    {
+        "game_name": "Baldur's Gate 3",
+        "lot_name": "Baldur's Gate 3",
+        "node_id": "1597",
+        "region": "Турция",
+        "price": 1851.94
+    },
+    {
+        "game_name": "Baldur's Gate 3",
+        "lot_name": "Baldur's Gate 3",
+        "node_id": "1597",
+        "region": "Аргентина",
+        "price": 1851.94
+    },
+    {
+        "game_name": "Bodycam",
+        "lot_name": "Bodycam",
+        "node_id": "2501",
+        "region": "Россия",
+        "price": 3431.96
+    },
+    {
+        "game_name": "Bodycam",
+        "lot_name": "Bodycam",
+        "node_id": "2501",
+        "region": "Казахстан",
+        "price": 3431.96
+    },
+    {
+        "game_name": "Bodycam",
+        "lot_name": "Bodycam",
+        "node_id": "2501",
+        "region": "Украина",
+        "price": 3431.96
+    },
+    {
+        "game_name": "Bodycam",
+        "lot_name": "Bodycam",
+        "node_id": "2501",
+        "region": "СНГ",
+        "price": 3431.96
+    },
+    {
+        "game_name": "Bodycam",
+        "lot_name": "Bodycam",
+        "node_id": "2501",
+        "region": "Турция",
+        "price": 3431.96
+    },
+    {
+        "game_name": "Bodycam",
+        "lot_name": "Bodycam",
+        "node_id": "2501",
+        "region": "Аргентина",
+        "price": 3431.96
+    },
+    {
+        "game_name": "Atomic Heart",
+        "lot_name": "Atomic Heart",
+        "node_id": "1291",
+        "region": "Россия",
+        "price": 1017.64
+    },
+    {
+        "game_name": "Atomic Heart",
+        "lot_name": "Atomic Heart",
+        "node_id": "1291",
+        "region": "Казахстан",
+        "price": 1017.64
+    },
+    {
+        "game_name": "Atomic Heart",
+        "lot_name": "Atomic Heart",
+        "node_id": "1291",
+        "region": "Украина",
+        "price": 1017.64
+    },
+    {
+        "game_name": "Atomic Heart",
+        "lot_name": "Atomic Heart",
+        "node_id": "1291",
+        "region": "СНГ",
+        "price": 2038.37
+    },
+    {
+        "game_name": "Atomic Heart",
+        "lot_name": "Atomic Heart",
+        "node_id": "1291",
+        "region": "Турция",
+        "price": 2038.37
+    },
+    {
+        "game_name": "Atomic Heart",
+        "lot_name": "Atomic Heart",
+        "node_id": "1291",
+        "region": "Аргентина",
+        "price": 2038.37
+    },
+    {
+        "game_name": "(PC) Siege",
+        "lot_name": "Tom Clancy's Rainbow Six",
+        "node_id": "1050",
+        "region": "Россия",
+        "price": 1098.74
+    },
+    {
+        "game_name": "(PC) Siege",
+        "lot_name": "Tom Clancy's Rainbow Six",
+        "node_id": "1050",
+        "region": "Казахстан",
+        "price": 2157.8
+    },
+    {
+        "game_name": "(PC) Siege",
+        "lot_name": "Tom Clancy's Rainbow Six",
+        "node_id": "1050",
+        "region": "Украина",
+        "price": 1098.74
+    },
+    {
+        "game_name": "(PC) Siege",
+        "lot_name": "Tom Clancy's Rainbow Six",
+        "node_id": "1050",
+        "region": "СНГ",
+        "price": 2157.8
+    },
+    {
+        "game_name": "(PC) Siege",
+        "lot_name": "Tom Clancy's Rainbow Six",
+        "node_id": "1050",
+        "region": "Турция",
+        "price": 2157.8
+    },
+    {
+        "game_name": "(PC) Siege",
+        "lot_name": "Tom Clancy's Rainbow Six",
+        "node_id": "1050",
+        "region": "Аргентина",
+        "price": 2157.8
+    },
+    {
+        "game_name": "Kenshi",
+        "lot_name": "Kenshi",
+        "node_id": "2630",
+        "region": "Россия",
+        "price": 973.6
+    },
+    {
+        "game_name": "Kenshi",
+        "lot_name": "Kenshi",
+        "node_id": "2630",
+        "region": "Казахстан",
+        "price": 3219.73
+    },
+    {
+        "game_name": "Kenshi",
+        "lot_name": "Kenshi",
+        "node_id": "2630",
+        "region": "Украина",
+        "price": 973.6
+    },
+    {
+        "game_name": "Kenshi",
+        "lot_name": "Kenshi",
+        "node_id": "2630",
+        "region": "СНГ",
+        "price": 3219.73
+    },
+    {
+        "game_name": "Kenshi",
+        "lot_name": "Kenshi",
+        "node_id": "2630",
+        "region": "Турция",
+        "price": 3219.73
+    },
+    {
+        "game_name": "Kenshi",
+        "lot_name": "Kenshi",
+        "node_id": "2630",
+        "region": "Аргентина",
+        "price": 3219.73
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
+    }
+]
