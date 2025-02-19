@@ -589,7 +589,7 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
            daemon=True).start()
 
 
-def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_login: str, game_name: str, duration: str):
+def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_login: str, account_password: str, account_email: str, game_name: str, duration: str):
     """
     Waits for rental expiration and handles post-rental actions.
     """
@@ -642,6 +642,8 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
 
 🎮 Игра: {game_name}
 👤 Аккаунт: {account_login}
+🔑 Пароль: {account_password}
+📧 Почта: {account_email}
 👨 Арендатор: {username}
 
 ⚠️ Необходимо сменить пароль!"""
@@ -697,11 +699,12 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             logger.error(f"Failed to send account details for order {e.order.id}")
             available_account.is_rented = False 
             save_games(games)
+            update_lot("Steam_arenda", game)
         else:
             logger.info(f"Account details delivered for order {e.order.id}")
             # Start expiration timer thread
             Thread(target=check_rental_expiration,
-                   args=(c, chat_id, e.order.buyer_username, available_account.login, game_name, duration),
+                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.emailLogin, game_name, duration),
                    daemon=True).start()
     else:    
         delivery_text = cardinal_tools.format_order_text(cfg_obj["response"], e.order)

@@ -312,9 +312,15 @@ def init_commands(cardinal: Cardinal):
                 lot.set_fields(fields)
                 cardinal.account.save_lot(lot)
                 logger.info(f"[LOTS COPY] Изменил лот {node_id}.")
-                bot.send_message(message.chat.id, f"Обновлен лот для {game.name} аренды на {readable_duration}")
+                if (message == "Steam_arenda"):
+                    bot.send_message("1284467388", f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
+                else:
+                    bot.send_message(message.chat.id, f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
         except Exception as e:
-            bot.send_message(message.chat.id, f"Ошибка при обновлении лота: {e}")
+            if (message == "Steam_arenda"):
+                bot.send_message("1284467388", f"❌ Ошибка при обновлении лота: {e}")
+            else:   
+                bot.send_message(message.chat.id, f"❌ Ошибка при обновлении лота: {e}")
 
     def handle_add_account(message: Message):
         msg = bot.send_message(message.chat.id, "📧 Введите логин аккаунта Steam:")
