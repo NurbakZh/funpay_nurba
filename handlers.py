@@ -630,11 +630,14 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
     # Update account status
     games = load_games()
     game = next((g for g in games if g.name == game_name), None)
+    print(game)
     if game:
         account = next((acc for acc in game.accounts if acc.login == account_login), None)
         if account:
             account.is_rented = False
+            print(account)
             save_games(games)
+            update_lot("Steam_arenda", game)
             
     # Send notification to admin
     if c.telegram:
@@ -647,9 +650,9 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
 👨 Арендатор: {username}
 
 ⚠️ Необходимо сменить пароль!"""
-        
-        c.telegram.send_notification(admin_text, None)
 
+        Thread(target=c.telegram.send_notification, args=(admin_text,),
+            kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
 
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     print(e.order.description)
@@ -683,12 +686,16 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 🔑 Пароль Steam: {available_account.password}
 
 ⏰ Срок аренды: {duration}
+⌛️ Время завершения: {(datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')} (по Мск)
+
 {f'''
 📱 Для получения кода Social Club отправьте команду:
 
 !get_code {available_account.login}''' if available_account.email_login != "none" else ""}
 
 {f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
+
+❗️|help❗️ - Узнай ОТВЕТЫ на часто задаваемые ВОПРОСЫ (Например "Аккаунт общий?, Даешь время на скачивание? и др.").
 
 ❗️ Запрещено менять данные и передавать их третьим лицам
 ❗️ Используйте аккаунт строго в рамках правил Steam"""

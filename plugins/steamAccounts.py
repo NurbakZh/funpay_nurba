@@ -21,7 +21,7 @@ from plugins.parser import generate_random_id, translate_text
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-NAME = "Steam Accounts Plugin"
+NAME = "Steam Accounts АРЕНДА Plugin"
 VERSION = "0.0.1"
 DESCRIPTION = "Данный плагин позволяет управлять системой аренды аккаунтов на Steam"
 CREDITS = "@nurba_zh"
