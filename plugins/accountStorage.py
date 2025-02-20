@@ -4,7 +4,6 @@ import json
 from logging import getLogger
 from typing import TYPE_CHECKING, Dict
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import CallbackQueryHandler
 
 if TYPE_CHECKING:
     from cardinal import Cardinal
