@@ -16,7 +16,7 @@ CREDITS = "@nurba_zh"
 SETTINGS_PAGE = False
 UUID = "f5b3b3b4-0b3b-4b3b-8b3b-0b3b3b3b3b6b"
 
-logger = getLogger("FPC.steam_accounts_plugin")
+logger = getLogger("FPC.steam_storage_plugin")
 
 TEMP_STORAGE = {}
 
