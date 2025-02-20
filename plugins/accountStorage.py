@@ -89,19 +89,162 @@ def init_commands(cardinal: Cardinal):
 
     def handle_add_account(message):
         """Начинает процесс добавления нового аккаунта."""
+        msg = cardinal.telegram.bot.send_message(
+            message.chat.id,
+            "📧 Введите логин аккаунта:"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_login_step)
+
+    def process_login_step(message):
+        """Обрабатывает ввод логина."""
+        login = message.text
+        TEMP_STORAGE[message.chat.id] = {"login": login}
+        msg = cardinal.telegram.bot.send_message(
+            message.chat.id,
+            "🔑 Введите пароль аккаунта:"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_password_step)
+
+    def process_password_step(message):
+        """Обрабатывает ввод пароля."""
         chat_id = message.chat.id
+        TEMP_STORAGE[chat_id]["password"] = message.text
+        msg = cardinal.telegram.bot.send_message(
+            chat_id,
+            "📧 Введите email аккаунта:"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_email_step)
+
+    def process_email_step(message):
+        """Обрабатывает ввод email."""
+        chat_id = message.chat.id
+        TEMP_STORAGE[chat_id]["email"] = message.text
+        msg = cardinal.telegram.bot.send_message(
+            chat_id,
+            "🔑 Введите пароль от email:"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_email_password_step)
+
+    def process_email_password_step(message):
+        """Обрабатывает ввод пароля от email."""
+        chat_id = message.chat.id
+        TEMP_STORAGE[chat_id]["email_password"] = message.text
+        msg = cardinal.telegram.bot.send_message(
+            chat_id,
+            "📝 Введите дополнительную информацию (или '-' если нет):"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_additional_info_step)
+
+    def process_additional_info_step(message):
+        """Обрабатывает ввод дополнительной информации."""
+        chat_id = message.chat.id
+        data = TEMP_STORAGE[chat_id]
+        data["additional_info"] = message.text if message.text != "-" else ""
+        
+        accounts = load_accounts()
+        accounts[data["login"]] = {
+            "login": data["login"],
+            "password": data["password"],
+            "email": data["email"],
+            "email_password": data["email_password"],
+            "additional_info": data["additional_info"]
+        }
+        save_accounts(accounts)
+        
+        cardinal.telegram.bot.send_message(
+            chat_id,
+            f"✅ Аккаунт {data['login']} успешно сохранен!"
+        )
+        del TEMP_STORAGE[chat_id]
+
+    def handle_change_account(message):
+        """Начинает процесс изменения данных конкретного аккаунта."""
         try:
-            login = message.text.split()[1]  
-            TEMP_STORAGE[chat_id] = {"login": login, "step": "password"}
-            cardinal.telegram.bot.send_message(
-                chat_id,
-                "Введите пароль для аккаунта:"
-            )
+            login = message.text.split()[1]
+            accounts = load_accounts()
+            if login in accounts:
+                TEMP_STORAGE[message.chat.id] = {"login": login}
+                msg = cardinal.telegram.bot.send_message(
+                    message.chat.id,
+                    "Введите новый пароль (или '-' чтобы оставить текущий):"
+                )
+                cardinal.telegram.bot.register_next_step_handler(msg, process_edit_password_step)
+            else:
+                cardinal.telegram.bot.send_message(
+                    message.chat.id,
+                    f"❌ Аккаунт {login} не найден."
+                )
         except IndexError:
             cardinal.telegram.bot.send_message(
-                chat_id,
-                "❌ Пожалуйста, укажите логин аккаунта после команды.\nПример: /add_new_steam_account login123"
+                message.chat.id,
+                "❌ Пожалуйста, укажите логин аккаунта после команды.\n"
+                "Пример: /change_account login123"
             )
+
+    def process_edit_password_step(message):
+        """Обрабатывает изменение пароля."""
+        chat_id = message.chat.id
+        accounts = load_accounts()
+        current_account = accounts[TEMP_STORAGE[chat_id]["login"]]
+        TEMP_STORAGE[chat_id]["password"] = message.text if message.text != "-" else current_account["password"]
+        
+        msg = cardinal.telegram.bot.send_message(
+            chat_id,
+            "Введите новый email (или '-' чтобы оставить текущий):"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_edit_email_step)
+
+    def process_edit_email_step(message):
+        """Обрабатывает изменение email."""
+        chat_id = message.chat.id
+        accounts = load_accounts()
+        current_account = accounts[TEMP_STORAGE[chat_id]["login"]]
+        TEMP_STORAGE[chat_id]["email"] = message.text if message.text != "-" else current_account["email"]
+        
+        msg = cardinal.telegram.bot.send_message(
+            chat_id,
+            "Введите новый пароль от email (или '-' чтобы оставить текущий):"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_edit_email_password_step)
+
+    def process_edit_email_password_step(message):
+        """Обрабатывает изменение пароля от email."""
+        chat_id = message.chat.id
+        accounts = load_accounts()
+        current_account = accounts[TEMP_STORAGE[chat_id]["login"]]
+        TEMP_STORAGE[chat_id]["email_password"] = message.text if message.text != "-" else current_account["email_password"]
+        
+        msg = cardinal.telegram.bot.send_message(
+            chat_id,
+            "Введите новую дополнительную информацию (или '-' чтобы оставить текущую):"
+        )
+        cardinal.telegram.bot.register_next_step_handler(msg, process_edit_additional_info_step)
+
+    def process_edit_additional_info_step(message):
+        """Обрабатывает изменение дополнительной информации."""
+        chat_id = message.chat.id
+        data = TEMP_STORAGE[chat_id]
+        accounts = load_accounts()
+        current_account = accounts[data["login"]]
+        
+        data["additional_info"] = message.text if message.text != "-" else current_account["additional_info"]
+        
+        # Update account data
+        accounts[data["login"]] = {
+            "login": data["login"],
+            "password": data["password"],
+            "email": data["email"],
+            "email_password": data["email_password"],
+            "additional_info": data["additional_info"]
+        }
+        save_accounts(accounts)
+        
+        cardinal.telegram.bot.send_message(
+            chat_id,
+            f"✅ Данные аккаунта {data['login']} успешно обновлены!\n\n" +
+            format_account_info(accounts[data["login"]])
+        )
+        del TEMP_STORAGE[chat_id]
 
     def handle_get_accounts(message):
         """Отображает список всех аккаунтов."""
@@ -140,127 +283,6 @@ def init_commands(cardinal: Cardinal):
                 message.chat.id,
                 "❌ Пожалуйста, укажите логин аккаунта после команды.\nПример: /get_account login123"
             )
-
-    def handle_change_account(message):
-        """Начинает процесс изменения данных конкретного аккаунта."""
-        chat_id = message.chat.id
-        try:
-            login = message.text.split()[1]
-            accounts = load_accounts()
-            if login in accounts:
-                TEMP_STORAGE[chat_id] = {
-                    "login": login,
-                    "step": "edit_password",
-                    "edit_mode": True
-                }
-                cardinal.telegram.bot.send_message(
-                    chat_id,
-                    f"Редактирование аккаунта {login}\n"
-                    "Введите новый пароль (или '-' чтобы оставить текущий):"
-                )
-            else:
-                cardinal.telegram.bot.send_message(
-                    chat_id,
-                    f"❌ Аккаунт {login} не найден."
-                )
-        except IndexError:
-            cardinal.telegram.bot.send_message(
-                chat_id,
-                "❌ Пожалуйста, укажите логин аккаунта после команды.\n"
-                "Пример: /change_account login123"
-            )
-
-    def handle_message(message):
-        """Обрабатывает сообщения в процессе добавления/редактирования аккаунта."""
-        chat_id = message.chat.id
-        if chat_id not in TEMP_STORAGE:
-            return
-
-        data = TEMP_STORAGE[chat_id]
-        step = data["step"]
-        accounts = load_accounts()
-
-        # Handle editing mode
-        if data.get("edit_mode"):
-            current_account = accounts[data["login"]]
-            
-            if step == "edit_password":
-                data["password"] = message.text if message.text != "-" else current_account["password"]
-                data["step"] = "edit_email"
-                cardinal.telegram.bot.send_message(
-                    chat_id,
-                    "Введите новый email (или '-' чтобы оставить текущий):"
-                )
-            
-            elif step == "edit_email":
-                data["email"] = message.text if message.text != "-" else current_account["email"]
-                data["step"] = "edit_email_password"
-                cardinal.telegram.bot.send_message(
-                    chat_id,
-                    "Введите новый пароль от email (или '-' чтобы оставить текущий):"
-                )
-            
-            elif step == "edit_email_password":
-                data["email_password"] = message.text if message.text != "-" else current_account["email_password"]
-                data["step"] = "edit_additional_info"
-                cardinal.telegram.bot.send_message(
-                    chat_id,
-                    "Введите новую дополнительную информацию (или '-' чтобы оставить текущую):"
-                )
-            
-            elif step == "edit_additional_info":
-                data["additional_info"] = message.text if message.text != "-" else current_account["additional_info"]
-                
-                # Update account data
-                accounts[data["login"]] = {
-                    "login": data["login"],
-                    "password": data["password"],
-                    "email": data["email"],
-                    "email_password": data["email_password"],
-                    "additional_info": data["additional_info"]
-                }
-                save_accounts(accounts)
-                
-                cardinal.telegram.bot.send_message(
-                    chat_id,
-                    f"✅ Данные аккаунта {data['login']} успешно обновлены!\n\n" +
-                    format_account_info(accounts[data["login"]])
-                )
-                del TEMP_STORAGE[chat_id]
-
-        # Handle regular adding mode
-        else:
-            if step == "password":
-                data["password"] = message.text
-                data["step"] = "email"
-                cardinal.telegram.bot.send_message(chat_id, "Введите email аккаунта:")
-            
-            elif step == "email":
-                data["email"] = message.text
-                data["step"] = "email_password"
-                cardinal.telegram.bot.send_message(chat_id, "Введите пароль от email:")
-            
-            elif step == "email_password":
-                data["email_password"] = message.text
-                data["step"] = "additional_info"
-                cardinal.telegram.bot.send_message(chat_id, "Введите дополнительную информацию (или '-' если нет):")
-            
-            elif step == "additional_info":
-                data["additional_info"] = message.text if message.text != "-" else ""
-                accounts = load_accounts()
-                accounts[data["login"]] = {
-                    "login": data["login"],
-                    "password": data["password"],
-                    "email": data["email"],
-                    "email_password": data["email_password"],
-                    "additional_info": data["additional_info"]
-                }
-                save_accounts(accounts)
-                cardinal.telegram.bot.send_message(
-                    chat_id,
-                    f"✅ Аккаунт {data['login']} успешно сохранен!"
-                )
-                del TEMP_STORAGE[chat_id]
 
     def handle_change_accounts(message):
         """Отображает список всех аккаунтов для редактирования."""
@@ -384,9 +406,6 @@ def init_commands(cardinal: Cardinal):
     cardinal.telegram.msg_handler(handle_get_account, commands=["get_account"])
     cardinal.telegram.msg_handler(handle_change_account, commands=["change_account"])
     cardinal.telegram.msg_handler(handle_change_accounts, commands=["change_accounts"])
-    cardinal.telegram.msg_handler(handle_message)
-    
-    # Fix: Add lambda function for callback query handler
     cardinal.telegram.cbq_handler(handle_callback_query, lambda c: c.data.startswith((ACCOUNT_PAGE, ACCOUNT_SELECT)))
 
 BIND_TO_PRE_INIT = [init_commands]
