@@ -49,7 +49,7 @@ class Account:
             "emailLogin": self.email_login,
             "emailPassword": self.email_password,
             "isRented": self.is_rented,
-            "timeOfRent": self.time_of_rent.isoformat() if self.time_of_rent else None,
+            "timeOfRent": self.time_of_rent,
             "additionalInfo": self.additional_info
         }
 
@@ -61,7 +61,7 @@ class Account:
             email_login=data.get("emailLogin"),
             email_password=data.get("emailPassword"),
             is_rented=data["isRented"],
-            time_of_rent=datetime.fromisoformat(data["timeOfRent"]) if data["timeOfRent"] else None,
+            time_of_rent=data["timeOfRent"],
             additional_info=data.get("additionalInfo")
         )
         return account
