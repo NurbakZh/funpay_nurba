@@ -222,6 +222,37 @@ def generate_description_text(game_name: str) -> str:
 
 ✅ Соблюдайте правила и играйте без лишних проблем! 🎮🔥"""
 
+def update_lot(message: Message, game: Game, cardinal: Cardinal):
+    try:
+        node_id = get_account_game_link(game.lot_name)
+        for duration, price_data in game.prices.items():
+            readable_duration = duration_names.get(duration, duration)
+            game_id = price_data["url"].split("=")[-1]
+            lot_fields = cardinal.account.get_lots_field(node_id, game_id)
+            if len(game.accounts) > 0:
+                lot_fields["active"] = "on"
+                lot_fields["amount"] = len(game.accounts)
+            else:
+                lot_fields["active"] = "off"
+                lot_fields["amount"] = 0
+            lot = FunPayAPI.types.LotFields(game_id, lot_fields)
+            final_lot_id = lot.lot_id
+            fields = lot.fields
+            fields["offer_id"] = final_lot_id
+            fields["csrf_token"] = cardinal.account.csrf_token
+            lot.set_fields(fields)
+            cardinal.account.save_lot(lot)
+            logger.info(f"[LOTS COPY] Изменил лот {node_id}.")
+            if (message == "Steam_arenda"):
+                cardinal.telegram.bot.send_message("1284467388", f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
+            else:   
+                cardinal.telegram.bot.send_message(message.chat.id, f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
+    except Exception as e:
+        if (message == "Steam_arenda"):
+            cardinal.telegram.bot.send_message("1284467388", f"❌ Ошибка при обновлении лота: {e}")
+        else:   
+            cardinal.telegram.bot.send_message(message.chat.id, f"❌ Ошибка при обновлении лота: {e}")
+
 def init_commands(cardinal: Cardinal):
     if not cardinal.telegram:
         return
@@ -290,37 +321,6 @@ def init_commands(cardinal: Cardinal):
             edit_game(game.lot_name, {"prices": game.prices})
         except Exception as e:
             bot.send_message(message.chat.id, f"❌ Ошибка при создании лота: {e}")
-
-    def update_lot(message: Message, game: Game):
-        try:
-            node_id = get_account_game_link(game.lot_name)
-            for duration, price_data in game.prices.items():
-                readable_duration = duration_names.get(duration, duration)
-                game_id = price_data["url"].split("=")[-1]
-                lot_fields = cardinal.account.get_lots_field(node_id, game_id)
-                if len(game.accounts) > 0:
-                    lot_fields["active"] = "on"
-                    lot_fields["amount"] = len(game.accounts)
-                else:
-                    lot_fields["active"] = "off"
-                    lot_fields["amount"] = 0
-                lot = FunPayAPI.types.LotFields(game_id, lot_fields)
-                final_lot_id = lot.lot_id
-                fields = lot.fields
-                fields["offer_id"] = final_lot_id
-                fields["csrf_token"] = cardinal.account.csrf_token
-                lot.set_fields(fields)
-                cardinal.account.save_lot(lot)
-                logger.info(f"[LOTS COPY] Изменил лот {node_id}.")
-                if (message == "Steam_arenda"):
-                    bot.send_message("1284467388", f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
-                else:
-                    bot.send_message(message.chat.id, f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
-        except Exception as e:
-            if (message == "Steam_arenda"):
-                bot.send_message("1284467388", f"❌ Ошибка при обновлении лота: {e}")
-            else:   
-                bot.send_message(message.chat.id, f"❌ Ошибка при обновлении лота: {e}")
 
     def handle_add_account(message: Message):
         msg = bot.send_message(message.chat.id, "📧 Введите логин аккаунта Steam:")
@@ -522,7 +522,7 @@ def init_commands(cardinal: Cardinal):
                 game.accounts.append(account)
                 save_games(games)
                 bot.send_message(message.chat.id, f"Аккаунт успешно добавлен к игре {game_name}")
-                update_lot(message, game)
+                update_lot(message, game, cardinal)
             else:
                 bot.send_message(message.chat.id, f"❌ Игра {game_name} не найдена в базе данных")
         except Exception as e:
@@ -562,7 +562,6 @@ def init_commands(cardinal: Cardinal):
     def handle_delete_account(call):
         _, game_name, login = call.data.split(":")
         
-        # Delete the keyboard
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
         
         games = load_games()
@@ -572,7 +571,7 @@ def init_commands(cardinal: Cardinal):
             game.accounts = [acc for acc in game.accounts if acc.login != login]
             save_games(games)
             bot.send_message(call.message.chat.id, f"Аккаунт {login} успешно удален из игры {game_name}")
-            update_lot(call.message, game)
+            update_lot(call.message, game, cardinal)
         else:
             bot.send_message(call.message.chat.id, "Игра не найдена")
 

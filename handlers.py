@@ -23,7 +23,7 @@ import logging
 import time
 import re
 from parser_helper import check_for_last, check_for_last_with_account
-from plugins.steamAccounts import load_games, Account, Game, save_games, duration_names
+from plugins.steamAccounts import load_games, Account, Game, save_games, duration_names, update_lot
 
 LAST_STACK_ID = ""
 MSG_LOG_LAST_STACK_ID = ""
@@ -99,7 +99,55 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
     for index, event in enumerate(e.stack.get_stack()):
         username, text = event.message.author, event.message.text or event.message.image_link
         
-        if text and text.startswith("!arenda"):
+        if text and text.startswith("!time_left"):
+            try:
+                account_login = text.split("!time_left ")[1].strip()
+                games = load_games()
+                
+                # Find the rented account
+                rented_account = None
+                game_name = None
+                for game in games:
+                    for account in game.accounts:
+                        if account.login == account_login and account.is_rented:
+                            rented_account = account
+                            game_name = game.name
+                            break
+                    if rented_account:
+                        break
+                
+                if not rented_account:
+                    text = f"❌ Аккаунт {account_login} не найден или не находится в аренде"
+                else:
+                    # Calculate remaining time
+                    current_time = datetime.now()
+                    rental_end_str = rented_account.time_of_rent if hasattr(rented_account, 'time_of_rent') else None
+                    
+                    if not rental_end_str:
+                        text = "❌ Не удалось определить время окончания аренды"
+                    else:
+                        rental_end = datetime.strptime(rental_end_str, '%d-%m-%Y %H-%M-%S')
+                        remaining = rental_end - current_time
+                        hours = remaining.seconds // 3600
+                        minutes = (remaining.seconds % 3600) // 60  
+                        days = remaining.days
+                        text = f"""⏳ Информация об аренде:
+
+🎮 Игра: {game_name}
+👤 Аккаунт: {account_login}
+
+⌛️ Осталось времени: {days} д. {hours} ч. {minutes} мин."""
+
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.info(f"Получил запрос на оставшееся время аренды для аккаунта {account_login} от пользователя {chat_name} (CID: {chat_id})")
+                break
+            except Exception as e:
+                logger.error(f"Ошибка при обработке команды !time_left: {str(e)}")
+                text = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                break
+
+        elif text and text.startswith("!arenda"):
             try:
                 game_name = text.split("!arenda ")[1].strip()
                 games = load_games()
@@ -630,16 +678,19 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
     # Update account status
     games = load_games()
     game = next((g for g in games if g.name == game_name), None)
-    print(game)
     if game:
         account = next((acc for acc in game.accounts if acc.login == account_login), None)
         if account:
             account.is_rented = False
-            print(account)
             save_games(games)
-            update_lot("Steam_arenda", game)
+            update_lot("Steam_arenda", game, c)
             
     # Send notification to admin
+    print(f"Telegram bot instance: {c.telegram}")
+    print(f"Bot token: {c.telegram.token}")
+    print(f"Bot username: {c.telegram.bot.username}")
+    print(f"Bot ID: {c.telegram.bot.id}")
+    print(f"Notification settings: {c.telegram.notification_settings}")
     if c.telegram:
         admin_text = f"""🔄 Аренда завершена
 
@@ -678,6 +729,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             return
 
         available_account.is_rented = True
+        available_account.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
         save_games(games)
 
         delivery_text = f"""💫 Данные для входа в аккаунт:
@@ -687,6 +739,10 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 
 ⏰ Срок аренды: {duration}
 ⌛️ Время завершения: {(datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')} (по Мск)
+
+{f'''📝 Для определения времени до окончания аренды отправьте команду: 
+
+!time_left {available_account.login}'''}
 
 {f'''
 📱 Для получения кода Social Club отправьте команду:
@@ -706,7 +762,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             logger.error(f"Failed to send account details for order {e.order.id}")
             available_account.is_rented = False 
             save_games(games)
-            update_lot("Steam_arenda", game)
+            update_lot("Steam_arenda", game, c)
         else:
             logger.info(f"Account details delivered for order {e.order.id}")
             # Start expiration timer thread

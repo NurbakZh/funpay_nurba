@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from logging import getLogger
 from typing import TYPE_CHECKING, Dict
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 if TYPE_CHECKING:
     from cardinal import Cardinal
@@ -22,6 +22,7 @@ TEMP_STORAGE = {}
 ACCOUNT_PAGE = "acc_page"
 ACCOUNT_SELECT = "acc_select"
 EDIT_ACCOUNT = "edit_acc"
+ACCOUNT_VIEW = "acc_view"
 
 ACCOUNTS_PER_PAGE = 5
 
@@ -48,11 +49,11 @@ def create_account_keyboard(accounts: Dict, page: int = 0) -> InlineKeyboardMark
     end_idx = start_idx + ACCOUNTS_PER_PAGE
     current_accounts = accounts_list[start_idx:end_idx]
     
-    # Add account buttons
+    # Add account buttons with view callback data
     for login in current_accounts:
         keyboard.add(InlineKeyboardButton(
             text=login,
-            callback_data=f"{ACCOUNT_SELECT}_{login}"
+            callback_data=f"{ACCOUNT_VIEW}_{login}"
         ))
     
     # Add navigation buttons
@@ -227,7 +228,7 @@ def init_commands(cardinal: Cardinal):
         current_account = accounts[data["login"]]
         
         data["additional_info"] = message.text if message.text != "-" else current_account["additional_info"]
-        
+
         # Update account data
         accounts[data["login"]] = {
             "login": data["login"],
@@ -237,6 +238,23 @@ def init_commands(cardinal: Cardinal):
             "additional_info": data["additional_info"]
         }
         save_accounts(accounts)
+        
+        # Update password in games.json if account exists there
+        try:
+            with open('storage/plugins/accounts.json', 'r', encoding='utf-8') as f:
+                games_data = json.load(f)
+                
+            for game in games_data:
+                for account in game.get('accounts'):
+                    if account.get('login') == data['login']:
+                        account['password'] = data['password']
+                    
+            with open('storage/plugins/accounts.json', 'w', encoding='utf-8') as f:
+                json.dump(games_data, f, ensure_ascii=False, indent=4)
+        except FileNotFoundError:
+            logger.warning("games.json not found, skipping password update in games")
+        except Exception as e:
+            logger.error(f"Error updating password in games.json: {e}")
         
         cardinal.telegram.bot.send_message(
             chat_id,
@@ -309,10 +327,7 @@ def init_commands(cardinal: Cardinal):
             # Handle pagination
             page = int(data.split('_')[-1])
             accounts = load_accounts()
-            
-            # Check if this is from get_accounts or change_accounts
-            is_edit_mode = "редактирования" in c.message.text
-            keyboard = create_edit_keyboard(accounts, page) if is_edit_mode else create_account_keyboard(accounts, page)
+            keyboard = create_account_keyboard(accounts, page)
             
             cardinal.telegram.bot.edit_message_reply_markup(
                 chat_id=chat_id,
@@ -320,33 +335,34 @@ def init_commands(cardinal: Cardinal):
                 reply_markup=keyboard
             )
             
+        elif data.startswith(ACCOUNT_VIEW):
+            # Handle account viewing
+            login = data.split('_')[-1]
+            accounts = load_accounts()
+            
+            if login in accounts:
+                cardinal.telegram.bot.send_message(
+                    chat_id,
+                    format_account_info(accounts[login])
+                )
+            else:
+                cardinal.telegram.bot.send_message(
+                    chat_id,
+                    f"❌ Аккаунт {login} не найден."
+                )
+        
         elif data.startswith(ACCOUNT_SELECT):
             # Handle account selection
             login = data.split('_')[-1]
             accounts = load_accounts()
             
-            # Check if this is from get_accounts or change_accounts
-            is_edit_mode = "редактирования" in c.message.text
-            
             if login in accounts:
-                if is_edit_mode:
-                    # Start edit process
-                    TEMP_STORAGE[chat_id] = {
-                        "login": login,
-                        "step": "edit_password",
-                        "edit_mode": True
-                    }
-                    cardinal.telegram.bot.send_message(
-                        chat_id,
-                        f"Редактирование аккаунта {login}\n"
-                        "Введите новый пароль (или '-' чтобы оставить текущий):"
-                    )
-                else:
-                    # Just show account info
-                    cardinal.telegram.bot.send_message(
-                        chat_id,
-                        format_account_info(accounts[login])
-                    )
+                TEMP_STORAGE[chat_id] = {"login": login}
+                msg = cardinal.telegram.bot.send_message(
+                    chat_id,
+                    "Введите новый пароль (или '-' чтобы оставить текущий):"
+                )
+                cardinal.telegram.bot.register_next_step_handler(msg, process_edit_password_step)
             else:
                 cardinal.telegram.bot.send_message(
                     chat_id,
@@ -405,7 +421,7 @@ def init_commands(cardinal: Cardinal):
     cardinal.telegram.msg_handler(handle_get_account, commands=["get_account"])
     cardinal.telegram.msg_handler(handle_change_account, commands=["change_account"])
     cardinal.telegram.msg_handler(handle_change_accounts, commands=["change_accounts"])
-    cardinal.telegram.cbq_handler(handle_callback_query, lambda c: c.data.startswith((ACCOUNT_PAGE, ACCOUNT_SELECT)))
+    cardinal.telegram.cbq_handler(handle_callback_query, lambda c: c.data.startswith((ACCOUNT_PAGE, ACCOUNT_SELECT, ACCOUNT_VIEW)))
 
 BIND_TO_PRE_INIT = [init_commands]
 BIND_TO_DELETE = None
