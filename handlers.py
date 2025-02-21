@@ -738,23 +738,17 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 🔑 Пароль Steam: {available_account.password}
 
 ⏰ Срок аренды: {duration}
-⌛️ Время завершения: {(datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')} (по Мск)
+⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
 
-{f'''📝 Для определения времени до окончания аренды отправьте команду: 
+!time_left {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
 
-!time_left {available_account.login}'''}
-
-{f'''
-📱 Для получения кода Social Club отправьте команду:
-
-!get_code {available_account.login}''' if available_account.email_login != "none" else ""}
+{f"!get_code {available_account.login} - 🔑 Команда для получения кода Social Club" if available_account.email_login != "none" else ""}
 
 {f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
 
 ❗️|help❗️ - Узнай ОТВЕТЫ на часто задаваемые ВОПРОСЫ (Например "Аккаунт общий?, Даешь время на скачивание? и др.").
 
-❗️ Запрещено менять данные и передавать их третьим лицам
-❗️ Используйте аккаунт строго в рамках правил Steam"""
+❗️ Строго соблюдайте правила, прописанные в правилах аренды"""
 
         result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
 
