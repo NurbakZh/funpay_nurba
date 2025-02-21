@@ -686,11 +686,6 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
             update_lot("Steam_arenda", game, c)
             
     # Send notification to admin
-    print(f"Telegram bot instance: {c.telegram}")
-    print(f"Bot token: {c.telegram.token}")
-    print(f"Bot username: {c.telegram.bot.username}")
-    print(f"Bot ID: {c.telegram.bot.id}")
-    print(f"Notification settings: {c.telegram.notification_settings}")
     if c.telegram:
         admin_text = f"""🔄 Аренда завершена
 
