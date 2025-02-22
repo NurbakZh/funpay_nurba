@@ -24,6 +24,49 @@ UUID = "f5b3b3b4-0b3b-4b3b-8b3b-0b3b3b3b3b4b"
 logger = getLogger("FPC.lots_data_plugin")
 RUNNING = False
 
+def fetch_filters_data(url, headers):
+    """Fetches filter data from a specific page."""
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        filters_data = {}
+        
+        # Find showcase-filters div
+        showcase_filters = soup.find('div', class_='showcase-filters')
+        if showcase_filters:
+            # Find all form-group lot-field divs
+            form_groups = showcase_filters.find_all('div', class_='form-group lot-field')
+            
+            for group in form_groups:
+                data_id = group.get('data-id')
+                if not data_id:
+                    continue
+                
+                # Get all options and buttons
+                options = group.find_all('option')
+                buttons = group.find_all('button')
+                
+                values = []
+                # Extract text from options
+                for option in options:
+                    if option.text.strip():
+                        values.append(option.text.strip())
+                
+                # Extract text from buttons
+                for button in buttons:
+                    if button.text.strip():
+                        values.append(button.text.strip())
+                
+                if values:
+                    filters_data[data_id] = values
+                    
+        return filters_data
+    except requests.RequestException as e:
+        logger.error(f"Error fetching filters data from {url}: {str(e)}")
+        return None
+
 def fetch_game_data():
     """Получает данные об играх с сайта FunPay."""
     headers = {
@@ -55,9 +98,12 @@ def fetch_game_data():
             for li in list_items:
                 link = li.find('a')
                 if link:
+                    full_link = f"https://funpay.com{link.get('href', '')}" if link.get('href', '').startswith('/') else link.get('href', '')
+                    filters = fetch_filters_data(full_link, headers)
                     child_items.append({
                         'name': link.text.strip(),
-                        'link': link.get('href', '')
+                        'link': full_link,
+                        'filters': filters or {}
                     })
             
             games_data[game_title] = child_items
@@ -121,7 +167,12 @@ def compare_and_get_changes(old_data, new_data):
 
 def check_for_updates(cardinal: Cardinal, chat_id=None):
     """Проверяет обновления данных об играх и уведомляет об изменениях."""
+    cardinal.telegram.bot.send_message(
+        chat_id,
+        "Ручная проверка начата...."
+    )
     logger.info("Проверка обновлений данных игр...")
+
     
     try:
         new_data = fetch_game_data()
