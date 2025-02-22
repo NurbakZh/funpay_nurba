@@ -759,10 +759,10 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 
         if not result:
             logger.error(f"Failed to send account details for order {e.order.id}")
-        else:
-            logger.info(f"Account details delivered for order {e.order.id}")
             available_account.is_rented = False 
             save_games(games)
+        else:
+            logger.info(f"Account details delivered for order {e.order.id}")
             update_lot("Steam_arenda", game, c)
             # Start expiration timer thread
             Thread(target=check_rental_expiration,
