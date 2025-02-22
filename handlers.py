@@ -675,6 +675,24 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
 
     c.send_message(chat_id, expiration_text, username)
     
+    if not c.telegram:
+        print("Telegram bot is not initialized")
+        return
+
+    text = f"""🔄 Аренда завершена
+
+🎮 Игра: {game_name}
+👤 Аккаунт: {account_login}
+🔑 Пароль: {account_password}
+📧 Почта: {account_email}
+👨 Арендатор: {username}
+
+⚠️ Необходимо сменить пароль!"""
+
+    print(text)
+
+    Thread(target=c.telegram.send_notification, args=(text,), kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
+
     # Update account status
     games = load_games()
     game = next((g for g in games if g.name == game_name), None)
@@ -685,20 +703,8 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
             save_games(games)
             update_lot("Steam_arenda", game, c)
             
-    # Send notification to admin
-    if c.telegram:
-        admin_text = f"""🔄 Аренда завершена
-
-🎮 Игра: {game_name}
-👤 Аккаунт: {account_login}
-🔑 Пароль: {account_password}
-📧 Почта: {account_email}
-👨 Арендатор: {username}
-
-⚠️ Необходимо сменить пароль!"""
-
-        Thread(target=c.telegram.send_notification, args=(admin_text,),
-            kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
+    print("Аренда завершена")
+    
 
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     print(e.order.description)

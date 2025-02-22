@@ -229,9 +229,10 @@ def update_lot(message: Message, game: Game, cardinal: Cardinal):
             readable_duration = duration_names.get(duration, duration)
             game_id = price_data["url"].split("=")[-1]
             lot_fields = cardinal.account.get_lots_field(node_id, game_id)
-            if len(game.accounts) > 0:
+            available_accounts = [acc for acc in game.accounts if not acc.is_rented]
+            if len(available_accounts) > 0:
                 lot_fields["active"] = "on"
-                lot_fields["amount"] = len(game.accounts)
+                lot_fields["amount"] = len(available_accounts)
             else:
                 lot_fields["active"] = "off"
                 lot_fields["amount"] = 0
