@@ -701,11 +701,12 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
     games = load_games()
     game = next((g for g in games if g.name == game_name), None)
     if game:
-        account = next((acc for acc in game.accounts if acc.login == account_login), None)
-        if account:
-            account.is_rented = False
-            save_games(games)
-            update_lot("Steam_arenda", game, c)
+        for acc in game.accounts:
+            if acc.login == account_login:
+                acc.is_rented = False
+                break
+        save_games(games)
+        update_lot("Steam_arenda", game, c)
             
     print("Аренда завершена")
     
@@ -727,14 +728,23 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             logger.error(f"Game {game_name} not found in database for order {e.order.id}")
             return
 
-        available_account = next((acc for acc in game.accounts if not acc.is_rented), None)
+        available_account = None
+        for acc in game.accounts:
+            if not acc.is_rented:
+                available_account = acc
+                break
         
         if not available_account:
             logger.error(f"No available accounts for game {game_name} for order {e.order.id}")
             return
 
-        available_account.is_rented = True
-        available_account.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
+        # Update the account in game.accounts list
+        for acc in game.accounts:
+            if acc.login == available_account.login:
+                acc.is_rented = True
+                acc.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
+                break
+
         save_games(games)
 
         delivery_text = f"""💫 Данные для входа в аккаунт:
