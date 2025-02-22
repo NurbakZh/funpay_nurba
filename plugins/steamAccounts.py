@@ -334,17 +334,17 @@ def init_commands(cardinal: Cardinal):
 
     def process_password_step(message: Message, login: str):
         password = message.text
-        msg = bot.send_message(message.chat.id, "📧 Введите логин от почты для Social Club (напишите *none*, если не нужно):")
+        msg = bot.send_message(message.chat.id, "📧 Введите логин от почты для Social Club (напишите *none*, если не нужно):", parse_mode="Markdown")
         bot.register_next_step_handler(msg, process_email_login_step, login, password)
 
     def process_email_login_step(message: Message, login: str, password: str):
         email_login = message.text
-        msg = bot.send_message(message.chat.id, "🔐 Введите пароль от почты для Social Club (напишите *none*, если не нужно):")
+        msg = bot.send_message(message.chat.id, "🔐 Введите пароль от почты для Social Club (напишите *none*, если не нужно):", parse_mode="Markdown")
         bot.register_next_step_handler(msg, process_email_password_step, login, password, email_login)
 
     def process_email_password_step(message: Message, login: str, password: str, email_login: str):
         email_password = message.text
-        msg = bot.send_message(message.chat.id, "ℹ️ Введите дополнительную информацию об аккаунте (напишите *none*, если не нужно):")
+        msg = bot.send_message(message.chat.id, "ℹ️ Введите дополнительную информацию об аккаунте (напишите *none*, если не нужно):", parse_mode="Markdown")
         bot.register_next_step_handler(msg, process_additional_info_step, login, password, email_login, email_password)
 
     def process_additional_info_step(message: Message, login: str, password: str, email_login: str, email_password: str):

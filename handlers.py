@@ -175,14 +175,18 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 
         elif text and text.startswith("!get_code"):
             try:
+                if len(text.split()) < 2:
+                    raise ValueError("Missing login parameter")
                 account = text.split("!get_code ")[1].strip()
+                print(account)
                 text = f"Ваш код верификации/Your verification code: {check_for_last_with_account(account)}"
                 Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
                 logger.info(f"Получил запрос на код Steam Guard для аккаунта {account} от пользователя {chat_name} (CID: {chat_id})")
                 break
-            except:
+            except Exception as e:
                 text = "❌ Неверный формат команды. Используйте: !get_code <логин>"
                 Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.error(f"Ошибка при обработке команды !get_code: {str(e)}")
                 break
 
         elif text == "!social_club":
@@ -755,11 +759,11 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 
         if not result:
             logger.error(f"Failed to send account details for order {e.order.id}")
+        else:
+            logger.info(f"Account details delivered for order {e.order.id}")
             available_account.is_rented = False 
             save_games(games)
             update_lot("Steam_arenda", game, c)
-        else:
-            logger.info(f"Account details delivered for order {e.order.id}")
             # Start expiration timer thread
             Thread(target=check_rental_expiration,
                    args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
