@@ -229,7 +229,7 @@ def update_lot(message: Message, game: Game, cardinal: Cardinal):
             readable_duration = duration_names.get(duration, duration)
             game_id = price_data["url"].split("=")[-1]
             lot_fields = cardinal.account.get_lots_field(node_id, game_id)
-            available_accounts = [acc for acc in game.accounts if acc.is_rented]
+            available_accounts = [acc for acc in game.accounts if not acc.is_rented]
             print(available_accounts, readable_duration)
             if len(available_accounts) > 0:
                 lot_fields["active"] = "on"
@@ -251,7 +251,7 @@ def update_lot(message: Message, game: Game, cardinal: Cardinal):
                 cardinal.telegram.bot.send_message(message.chat.id, f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
     except Exception as e:
         if (message == "Steam_arenda"):
-            cardinal.telegram.bot.send_message("1284467388", f"❌ Ошибка при обновлении лота: {e}")
+            cardinal.telegram.bot.send_message("1284467388", f"❌ Ошибsave_gamesка при обновлении лота: {e}")
         else:   
             cardinal.telegram.bot.send_message(message.chat.id, f"❌ Ошибка при обновлении лота: {e}")
 
