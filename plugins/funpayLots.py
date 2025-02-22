@@ -134,6 +134,7 @@ def load_game_data(filename='storage/plugins/game_data.json'):
     except Exception as e:
         logger.error(f"Ошибка при загрузке данных об играх: {str(e)}")
         return {}
+
 def compare_and_get_changes(old_data, new_data):
     """Сравнивает старые и новые данные и возвращает изменения."""
     changes = []
@@ -145,18 +146,48 @@ def compare_and_get_changes(old_data, new_data):
             continue
             
         # Check for changes in existing games
-        old_items = {(item['name'], item['link']) for item in old_data[game_title]}
-        new_items = {(item['name'], item['link']) for item in new_data[game_title]}
+        old_items = {item['name']: item for item in old_data[game_title]}
+        new_items = {item['name']: item for item in new_data[game_title]}
         
-        # Find added items
-        added = new_items - old_items
-        for name, link in added:
+        # Find added and removed sections
+        added_sections = set(new_items.keys()) - set(old_items.keys())
+        removed_sections = set(old_items.keys()) - set(new_items.keys())
+        
+        for name in added_sections:
             changes.append(f"➕ Добавлен раздел '{name}' в игре {game_title}")
             
-        # Find removed items
-        removed = old_items - new_items
-        for name, link in removed:
+        for name in removed_sections:
             changes.append(f"➖ Удален раздел '{name}' из игры {game_title}")
+        
+        # Check filter changes in existing sections
+        common_sections = set(new_items.keys()) & set(old_items.keys())
+        for section in common_sections:
+            old_filters = old_items[section].get('filters', {})
+            new_filters = new_items[section].get('filters', {})
+            
+            # Check for new and removed filter categories
+            added_categories = set(new_filters.keys()) - set(old_filters.keys())
+            removed_categories = set(old_filters.keys()) - set(new_filters.keys())
+            
+            for category in added_categories:
+                changes.append(f"📋 Добавлена категория фильтров '{category}' в разделе '{section}' игры {game_title}")
+            
+            for category in removed_categories:
+                changes.append(f"🗑️ Удалена категория фильтров '{category}' в разделе '{section}' игры {game_title}")
+            
+            # Check for changes in existing filter categories
+            common_categories = set(new_filters.keys()) & set(old_filters.keys())
+            for category in common_categories:
+                old_values = set(old_filters[category])
+                new_values = set(new_filters[category])
+                
+                added_values = new_values - old_values
+                removed_values = old_values - new_values
+                
+                if added_values:
+                    changes.append(f"➕ Добавлены опции '{', '.join(added_values)}' в категории '{category}' раздела '{section}' игры {game_title}")
+                if removed_values:
+                    changes.append(f"➖ Удалены опции '{', '.join(removed_values)}' в категории '{category}' раздела '{section}' игры {game_title}")
     
     # Check for removed games
     for game_title in old_data:
