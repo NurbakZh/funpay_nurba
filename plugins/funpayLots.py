@@ -285,7 +285,9 @@ def init_commands(cardinal: Cardinal):
         return
     def handle_check_now(message):
         """Обрабатывает команду проверки прямо сейчас."""
-        check_for_updates(cardinal, message.chat.id)
+        thread = threading.Thread(target=check_for_updates, args=(cardinal, message.chat.id))
+        thread.daemon = True
+        thread.start()
 
     def handle_start_monitoring(message):
         """Обрабатывает команду запуска мониторинга."""
