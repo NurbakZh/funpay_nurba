@@ -67,8 +67,8 @@ def fetch_filters_data(url, headers):
         logger.error(f"Error fetching filters data from {url}: {str(e)}")
         return None
 
-def fetch_game_data():
-    """Получает данные об играх с сайта FunPay."""
+def fetch_game_data(cardinal: Cardinal, chat_id=None, batch_size=50, delay_seconds=30):
+    """Получает данные об играх с сайта FunPay с разбивкой на партии."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
     }
@@ -79,39 +79,105 @@ def fetch_game_data():
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
-        games_data = {}
+        games_data = load_game_data()  # Load existing data at start
+        
+        # If it's first run and no data exists
+        if not games_data:
+            cardinal.telegram.bot.send_message(
+                chat_id,
+                "📝 Первый запуск: создание базы данных игр..."
+            )
 
         # Find all promo-game-items
         promo_games = soup.find_all('div', class_='promo-game-item')
+        total_batches = (len(promo_games) + batch_size - 1) // batch_size
         
-        for game in promo_games:
-            # Get game title
-            game_title_elem = game.find('div', class_='game-title')
-            if not game_title_elem:
-                continue
+        # Process games in batches
+        for batch_num, i in enumerate(range(0, len(promo_games), batch_size), 1):
+            batch = promo_games[i:i + batch_size]
+            batch_data = {}
+            
+            if chat_id:
+                cardinal.telegram.bot.send_message(
+                    chat_id,
+                    f"📊 Обработка партии {batch_num}/{total_batches} ({len(batch)} элементов)..."
+                )
+            
+            for game in batch:
+                game_title_elem = game.find('div', class_='game-title')
+                if not game_title_elem:
+                    continue
+                    
+                game_title = game_title_elem.text.strip()
                 
-            game_title = game_title_elem.text.strip()
+                # Get all child items from the list
+                child_items = []
+                list_items = game.find_all('li')
+                for li in list_items:
+                    link = li.find('a')
+                    if link:
+                        full_link = f"https://funpay.com{link.get('href', '')}" if link.get('href', '').startswith('/') else link.get('href', '')
+                        filters = fetch_filters_data(full_link, headers)
+                        child_items.append({
+                            'name': link.text.strip(),
+                            'link': full_link,
+                            'filters': filters or {}
+                        })
+                
+                batch_data[game_title] = child_items
             
-            # Get all child items from the list
-            child_items = []
-            list_items = game.find_all('li')
-            for li in list_items:
-                link = li.find('a')
-                if link:
-                    full_link = f"https://funpay.com{link.get('href', '')}" if link.get('href', '').startswith('/') else link.get('href', '')
-                    filters = fetch_filters_data(full_link, headers)
-                    child_items.append({
-                        'name': link.text.strip(),
-                        'link': full_link,
-                        'filters': filters or {}
-                    })
+            if not games_data:
+                # First run - just save the data without comparison
+                games_data.update(batch_data)  # Changed from dict merge to update
+                save_game_data(games_data)
+                if chat_id:  # Add check for chat_id
+                    cardinal.telegram.bot.send_message(
+                        chat_id,
+                        f"✅ Партия {batch_num}: данные сохранены"
+                    )
+            else:
+                # Get only the relevant part of the old data for this batch
+                batch_old_data = {k: games_data[k] for k in batch_data.keys() if k in games_data}
+                
+                # Compare only this batch's data
+                changes = compare_and_get_changes(batch_old_data, batch_data)
+                
+                # Update games_data with new batch data
+                games_data.update(batch_data)  # Changed from dict merge to update
+                    
+                # Save updated data after each batch
+                save_game_data(games_data)
+                
+                # Send batch results to user
+                if chat_id:  # Add check for chat_id
+                    if changes:
+                        message = f"🔄 Изменения в партии {batch_num}:\n\n" + "\n".join(changes)
+                        cardinal.telegram.bot.send_message(
+                            chat_id,
+                            message,
+                            parse_mode="Markdown"
+                        )
+                    else:
+                        cardinal.telegram.bot.send_message(
+                            chat_id,
+                            f"✅ Партия {batch_num} обработана. Изменений не обнаружено."
+                        )
             
-            games_data[game_title] = child_items
+            # If there are more items to process, wait before the next batch
+            if i + batch_size < len(promo_games):
+                wait_msg = f"⏳ Обработано {i + batch_size} элементов. Ожидание {delay_seconds} секунд перед следующей партией..."
+                logger.info(wait_msg)
+                if chat_id:
+                    cardinal.telegram.bot.send_message(chat_id, wait_msg)
+                time.sleep(delay_seconds)
             
         return games_data
         
     except requests.RequestException as e:
-        logger.error(f"Error fetching game data: {str(e)}")
+        error_msg = f"Error fetching game data: {str(e)}"
+        logger.error(error_msg)
+        if chat_id:
+            cardinal.telegram.bot.send_message(chat_id, f"❌ Ошибка: {error_msg}")
         return None
 
 def save_game_data(data, filename='storage/plugins/game_data.json'):
@@ -200,52 +266,27 @@ def check_for_updates(cardinal: Cardinal, chat_id=None):
     """Проверяет обновления данных об играх и уведомляет об изменениях."""
     cardinal.telegram.bot.send_message(
         chat_id,
-        "Ручная проверка начата...."
+        "🔍 Ручная проверка начата...\n"
+        "⚠️ Обработка будет выполняться партиями по 100 элементов\n"
+        "⏱️ Между партиями будет пауза в 30 секунд"
     )
     logger.info("Проверка обновлений данных игр...")
 
-    
     try:
-        new_data = fetch_game_data()
+        new_data = fetch_game_data(cardinal, chat_id, batch_size=100, delay_seconds=30)
         if new_data is None:
             return
             
-        old_data = load_game_data()
-        changes = compare_and_get_changes(old_data, new_data)
-        
-        if changes:
-            # Сохранение новых данных
-            save_game_data(new_data)
-            
-            # Подготовка сообщения уведомления
-            message = "🎮 Обновление игр FunPay 🎮\n\n"
-            message += "\n".join(changes)
-            
-            # Отправка уведомления через Telegram
-            if cardinal.telegram and chat_id:
-                try:
-                    cardinal.telegram.bot.send_message(
-                        chat_id,
-                        message,
-                        parse_mode="Markdown"
-                    )
-                    cardinal.telegram.bot.send_message(
-                        chat_id,
-                        "✅ Ручная проверка успешно завершена! 🎮"
-                    )
-                    logger.info(f"Уведомление об обновлении отправлено пользователю {chat_id}")
-                except Exception as e:
-                    logger.error(f"Не удалось отправить уведомление пользователю {chat_id}: {str(e)}")
-        else:
-            logger.info("Изменения в данных об играх не обнаружены")
-            if chat_id and cardinal.telegram:
-                cardinal.telegram.bot.send_message(
-                    chat_id, 
-                    "✅ Ручная проверка успешно завершена! 🎮"
-                )
+        cardinal.telegram.bot.send_message(
+            chat_id,
+            "✅ Проверка успешно завершена!"
+        )
             
     except Exception as e:
-        logger.error(f"Ошибка в check_for_updates: {str(e)}")
+        error_msg = f"Ошибка в check_for_updates: {str(e)}"
+        logger.error(error_msg)
+        if chat_id:
+            cardinal.telegram.bot.send_message(chat_id, f"❌ Ошибка: {error_msg}")
 
 def schedule_task(cardinal: Cardinal):
     """Планирует задачу проверки обновлений."""
@@ -253,7 +294,7 @@ def schedule_task(cardinal: Cardinal):
     
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 10 and now.minute == 0:
+        if now.hour == 10 and now.minute == 0 or now.hour == 20 and now.minute == 0:
             check_for_updates(cardinal)
 
     schedule.every().minute.do(job)
@@ -300,7 +341,7 @@ def init_commands(cardinal: Cardinal):
     ])
 
     # Register command handlers
-    cardinal.telegram.msg_handler(handle_check_now, commands=["check_games_now"])
+    #cardinal.telegram.msg_handler(handle_check_now, commands=["check_games_now"])
     cardinal.telegram.msg_handler(handle_start_monitoring, commands=["start_games_monitoring"])
 
 BIND_TO_PRE_INIT = [init_commands]
