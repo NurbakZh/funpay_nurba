@@ -154,7 +154,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                 game = next((g for g in games if g.name.lower() == game_name.lower()), None)
                 
                 if not game:
-                    text = f"❌ Игра {game_name} не найдена"
+                    text = f"❌ Аккаунт по игре {game_name} не продаётся у продавца"
                 else:
                     available_accounts = [acc for acc in game.accounts if not acc.is_rented]
                     if not available_accounts:
@@ -693,26 +693,31 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
 
 ⚠️ Необходимо сменить пароль!"""
 
-    print(text)
-
-    Thread(target=c.telegram.send_notification, args=(text,), kwargs={"notification_type": utils.NotificationTypes.delivery}, daemon=True).start()
+    Thread(target=c.telegram.send_notification, args=(text,), daemon=True).start()
 
     # Update account status
     games = load_games()
     game = next((g for g in games if g.name == game_name), None)
+
+    available_account = None
+    for acc in game.accounts:
+        if not acc.is_rented:
+            available_account = acc
+            break
+
     if game:
         for acc in game.accounts:
             if acc.login == account_login:
                 acc.is_rented = False
                 break
-        save_games(games)
-        update_lot("Steam_arenda", game, c)
+
+    save_games(games)
+    update_lot("Steam_arenda", game, c)
             
     print("Аренда завершена")
     
 
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
-    print(e.order.description)
     chat_id = c.account.get_chat_by_name(e.order.buyer_username).id
     cfg_obj = getattr(e, "config_section_obj")
 

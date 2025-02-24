@@ -369,6 +369,40 @@ def init_commands(cardinal: Cardinal):
                     f"❌ Аккаунт {login} не найден."
                 )
         
+        elif data.startswith("delete_acc_"):
+            # Handle account deletion
+            login = data.split('_')[-1]
+            accounts = load_accounts()
+            
+            if login in accounts:
+                del accounts[login]
+                save_accounts(accounts)
+                
+                # Update keyboard if there are still accounts
+                if accounts:
+                    keyboard = create_delete_keyboard(accounts)
+                    cardinal.telegram.bot.edit_message_reply_markup(
+                        chat_id=chat_id,
+                        message_id=c.message.message_id,
+                        reply_markup=keyboard
+                    )
+                else:
+                    cardinal.telegram.bot.edit_message_text(
+                        "Список аккаунтов пуст.",
+                        chat_id=chat_id,
+                        message_id=c.message.message_id
+                    )
+                
+                cardinal.telegram.bot.send_message(
+                    chat_id,
+                    f"✅ Аккаунт {login} успешно удален."
+                )
+            else:
+                cardinal.telegram.bot.send_message(
+                    chat_id,
+                    f"❌ Аккаунт {login} не найден."
+                )
+        
         # Answer the callback query to remove loading state
         cardinal.telegram.bot.answer_callback_query(c.id)
 
@@ -406,6 +440,81 @@ def init_commands(cardinal: Cardinal):
         
         return keyboard
 
+    def handle_delete_account(message):
+        """Удаляет конкретный аккаунт по логину."""
+        try:
+            login = message.text.split()[1]
+            accounts = load_accounts()
+            if login in accounts:
+                del accounts[login]
+                save_accounts(accounts)
+                cardinal.telegram.bot.send_message(
+                    message.chat.id,
+                    f"✅ Аккаунт {login} успешно удален."
+                )
+            else:
+                cardinal.telegram.bot.send_message(
+                    message.chat.id,
+                    f"❌ Аккаунт {login} не найден."
+                )
+        except IndexError:
+            cardinal.telegram.bot.send_message(
+                message.chat.id,
+                "❌ Пожалуйста, укажите логин аккаунта после команды.\n"
+                "Пример: /delete_account login123"
+            )
+
+    def handle_delete_accounts(message):
+        """Отображает список всех аккаунтов для удаления."""
+        accounts = load_accounts()
+        if not accounts:
+            cardinal.telegram.bot.send_message(
+                message.chat.id,
+                "Список аккаунтов пуст."
+            )
+            return
+        
+        keyboard = create_delete_keyboard(accounts)
+        cardinal.telegram.bot.send_message(
+            message.chat.id,
+            "Выберите аккаунт для удаления:",
+            reply_markup=keyboard
+        )
+
+    def create_delete_keyboard(accounts: Dict, page: int = 0) -> InlineKeyboardMarkup:
+        """Создает клавиатуру с аккаунтами для удаления."""
+        keyboard = InlineKeyboardMarkup()
+        accounts_list = list(accounts.keys())
+        total_pages = (len(accounts_list) + ACCOUNTS_PER_PAGE - 1) // ACCOUNTS_PER_PAGE
+        
+        start_idx = page * ACCOUNTS_PER_PAGE
+        end_idx = start_idx + ACCOUNTS_PER_PAGE
+        current_accounts = accounts_list[start_idx:end_idx]
+        
+        # Add account buttons with delete callback data
+        for login in current_accounts:
+            keyboard.add(InlineKeyboardButton(
+                text=f"🗑️ {login}",
+                callback_data=f"delete_acc_{login}"
+            ))
+        
+        # Add navigation buttons
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton(
+                text="⬅️",
+                callback_data=f"{ACCOUNT_PAGE}_{page-1}"
+            ))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton(
+                text="➡️",
+                callback_data=f"{ACCOUNT_PAGE}_{page+1}"
+            ))
+        if nav_buttons:
+            keyboard.add(*nav_buttons)
+        
+        return keyboard
+
     # Register commands and handlers
     cardinal.add_telegram_commands(UUID, [
         ("add_new_steam_account", "добавить новый Steam аккаунт", True),
@@ -413,6 +522,8 @@ def init_commands(cardinal: Cardinal):
         ("get_account", "получить информацию о конкретном аккаунте", True),
         ("change_accounts", "изменить данные аккаунтов", True),
         ("change_account", "изменить данные конкретного аккаунта", True),
+        ("delete_account", "удалить конкретный аккаунт", True),
+        ("delete_accounts", "показать список аккаунтов для удаления", True),
     ])
 
     # Register handlers
@@ -421,7 +532,9 @@ def init_commands(cardinal: Cardinal):
     cardinal.telegram.msg_handler(handle_get_account, commands=["get_account"])
     cardinal.telegram.msg_handler(handle_change_account, commands=["change_account"])
     cardinal.telegram.msg_handler(handle_change_accounts, commands=["change_accounts"])
-    cardinal.telegram.cbq_handler(handle_callback_query, lambda c: c.data.startswith((ACCOUNT_PAGE, ACCOUNT_SELECT, ACCOUNT_VIEW)))
+    cardinal.telegram.msg_handler(handle_delete_account, commands=["delete_account"])
+    cardinal.telegram.msg_handler(handle_delete_accounts, commands=["delete_accounts"])
+    cardinal.telegram.cbq_handler(handle_callback_query, lambda c: c.data.startswith((ACCOUNT_PAGE, ACCOUNT_SELECT, ACCOUNT_VIEW, "delete_acc_")))
 
 BIND_TO_PRE_INIT = [init_commands]
 BIND_TO_DELETE = None
