@@ -160,7 +160,8 @@ def init_commands(cardinal: Cardinal):
     def handle_change_account(message):
         """Начинает процесс изменения данных конкретного аккаунта."""
         try:
-            login = message.text.split()[1]
+            # Get everything after the command as the login
+            login = message.text.split(maxsplit=1)[1]
             accounts = load_accounts()
             if login in accounts:
                 TEMP_STORAGE[message.chat.id] = {"login": login}
@@ -283,7 +284,8 @@ def init_commands(cardinal: Cardinal):
     def handle_get_account(message):
         """Получает информацию о конкретном аккаунте."""
         try:
-            login = message.text.split()[1]
+            # Get everything after the command as the login
+            login = message.text.split(maxsplit=1)[1]
             accounts = load_accounts()
             if login in accounts:
                 cardinal.telegram.bot.send_message(
@@ -443,7 +445,8 @@ def init_commands(cardinal: Cardinal):
     def handle_delete_account(message):
         """Удаляет конкретный аккаунт по логину."""
         try:
-            login = message.text.split()[1]
+            # Get everything after the command as the login
+            login = message.text.split(maxsplit=1)[1]
             accounts = load_accounts()
             if login in accounts:
                 del accounts[login]
