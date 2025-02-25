@@ -339,7 +339,7 @@ def init_commands(cardinal: Cardinal):
             
         elif data.startswith(ACCOUNT_VIEW):
             # Handle account viewing
-            login = data.split('_')[-1]
+            login = '_'.join(data.split('_')[2:])  # Get everything after ACCOUNT_VIEW_
             accounts = load_accounts()
             
             if login in accounts:
@@ -355,7 +355,7 @@ def init_commands(cardinal: Cardinal):
         
         elif data.startswith(ACCOUNT_SELECT):
             # Handle account selection
-            login = data.split('_')[-1]
+            login = '_'.join(data.split('_')[2:])  # Get everything after ACCOUNT_SELECT_
             accounts = load_accounts()
             
             if login in accounts:
@@ -373,7 +373,7 @@ def init_commands(cardinal: Cardinal):
         
         elif data.startswith("delete_acc_"):
             # Handle account deletion
-            login = data.split('_')[-1]
+            login = '_'.join(data.split('_')[2:])  # Get everything after delete_acc_
             accounts = load_accounts()
             
             if login in accounts:
