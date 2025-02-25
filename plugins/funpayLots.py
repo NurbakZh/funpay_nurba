@@ -266,7 +266,7 @@ def check_for_updates(cardinal: Cardinal, chat_id=None):
     """Проверяет обновления данных об играх и уведомляет об изменениях."""
     cardinal.telegram.bot.send_message(
         chat_id,
-        "🔍 Ручная проверка начата...\n"
+        "🔍 проверка начата...\n"
         "⚠️ Обработка будет выполняться партиями по 100 элементов\n"
         "⏱️ Между партиями будет пауза в 30 секунд"
     )
@@ -288,14 +288,14 @@ def check_for_updates(cardinal: Cardinal, chat_id=None):
         if chat_id:
             cardinal.telegram.bot.send_message(chat_id, f"❌ Ошибка: {error_msg}")
 
-def schedule_task(cardinal: Cardinal):
+def schedule_task(cardinal: Cardinal, chat_id: int):
     """Планирует задачу проверки обновлений."""
     moscow_tz = pytz.timezone('Europe/Moscow')
     
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 10 and now.minute == 0 or now.hour == 20 and now.minute == 0:
-            check_for_updates(cardinal)
+        if now.hour == 12 and now.minute == 40 or now.hour == 20 and now.minute == 0:
+            check_for_updates(cardinal, chat_id)  # Pass the chat_id here
 
     schedule.every().minute.do(job)
     
@@ -306,19 +306,21 @@ def schedule_task(cardinal: Cardinal):
 def start_scheduler(cardinal: Cardinal, chat_id=None):
     """Запускает планировщик в отдельном потоке."""
     global RUNNING
-    if not RUNNING:
+    if not RUNNING and chat_id:  # Only start if we have a chat_id
         RUNNING = True
-        thread = threading.Thread(target=schedule_task, args=(cardinal,))
+        thread = threading.Thread(target=schedule_task, args=(cardinal, chat_id))  # Pass chat_id to schedule_task
         thread.daemon = True
         thread.start()
-        logger.info("Scheduler started successfully")
-        if chat_id and cardinal.telegram:
+        logger.info(f"Scheduler started successfully for chat_id: {chat_id}")
+        if cardinal.telegram:
             cardinal.telegram.bot.send_message(
                 chat_id,
                 "🚀 Мониторинг игр FunPay успешно запущен!\n\n"
-                "⏰ Обновления будут проверяться ежедневно в 10:00 по московскому времени\n"
+                "⏰ Обновления будут проверяться ежедневно в 10:00 и в 20:00 по московскому времени\n"
                 "🎮 Вы будете получать уведомления об изменениях"
             )
+    elif not chat_id:
+        logger.error("Cannot start scheduler: no chat_id provided")
 
 def init_commands(cardinal: Cardinal):
     """Инициализирует команды бота."""
@@ -336,7 +338,7 @@ def init_commands(cardinal: Cardinal):
 
     # Добавление команд в бот
     cardinal.add_telegram_commands(UUID, [
-        ("check_games_now", "проверить обновления игр прямо сейчас", True),
+        #("check_games_now", "проверить обновления игр прямо сейчас", True),
         ("start_games_monitoring", "запустить ежедневный мониторинг игр", True),
     ])
 
