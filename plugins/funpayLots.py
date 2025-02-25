@@ -294,7 +294,7 @@ def schedule_task(cardinal: Cardinal, chat_id: int):
     
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 12 and now.minute == 40 or now.hour == 20 and now.minute == 0:
+        if now.hour == 10 and now.minute == 00 or now.hour == 20 and now.minute == 0:
             check_for_updates(cardinal, chat_id)  # Pass the chat_id here
 
     schedule.every().minute.do(job)
