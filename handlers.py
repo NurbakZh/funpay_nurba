@@ -766,8 +766,6 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 
 {f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
 
-❗️|help❗️ - Узнай ОТВЕТЫ на часто задаваемые ВОПРОСЫ (Например "Аккаунт общий?, Даешь время на скачивание? и др.").
-
 ❗️ Строго соблюдайте правила, прописанные в правилах аренды"""
 
         result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
