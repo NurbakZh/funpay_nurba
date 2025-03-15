@@ -304,6 +304,7 @@ def update_lots(cardinal, bot, message):
                     if isinstance(e, FunPayAPI.exceptions.RequestFailedError):
                         logger.debug(e.response.content.decode())
                 bot.send_message(message.chat.id, f"Лот для региона {lot_fields['fields[region]']} **обновлен**: Игра: {game_name}, Лот: {lot_name}", parse_mode='Markdown')
+        time.sleep(10)
 
 def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')

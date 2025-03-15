@@ -151,12 +151,18 @@ def fetch_game_data(cardinal: Cardinal, chat_id=None, batch_size=50, delay_secon
                 # Send batch results to user
                 if chat_id:  # Add check for chat_id
                     if changes:
-                        message = f"🔄 Изменения в партии {batch_num}:\n\n" + "\n".join(changes)
-                        cardinal.telegram.bot.send_message(
-                            chat_id,
-                            message,
-                            parse_mode="Markdown"
-                        )
+                        # Split changes into chunks of 4000 characters
+                        message = f"🔄 Изменения в партии {batch_num}:\n\n"
+                        changes_text = "\n".join(changes)
+                        max_length = 4000 - len(message)
+                        
+                        for i in range(0, len(changes_text), max_length):
+                            part_message = message + changes_text[i:i + max_length]
+                            cardinal.telegram.bot.send_message(
+                                chat_id,
+                                part_message,
+                                parse_mode="Markdown"
+                            )
                     else:
                         cardinal.telegram.bot.send_message(
                             chat_id,
@@ -294,7 +300,7 @@ def schedule_task(cardinal: Cardinal, chat_id: int):
     
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 8 and now.minute == 00 or now.hour == 20 and now.minute == 0:
+        if now.hour == 8 and now.minute == 00 or now.hour == 18 and now.minute == 0:
             check_for_updates(cardinal, chat_id)  # Pass the chat_id here
 
     schedule.every().minute.do(job)
