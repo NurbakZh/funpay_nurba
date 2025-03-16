@@ -375,16 +375,16 @@ def init_commands(cardinal: Cardinal):
             edition_prices = get_game_prices(edition_id, edition_name)
             bot.send_message(message.chat.id, f"Игра: {edition_prices['name_ua']}\nЦена с долларов: {edition_prices['price_rub_en']} руб.\nЦена с гривен: {edition_prices['price_rub_ua']} руб.")
             msg = bot.send_message(message.chat.id, "Введите название лота:")
-            bot.register_next_step_handler(msg, process_edition_lot_name_step, edition_prices["name_ua"], edition_prices["price_rub_ua"], edition_prices["price_rub_en"], edition_prices["price_rub_kz"], edition_prices["price_ru"])
+            bot.register_next_step_handler(msg, process_edition_lot_name_step, edition_id, edition_prices["name_ua"], edition_prices["price_rub_ua"], edition_prices["price_rub_en"], edition_prices["price_rub_kz"], edition_prices["price_ru"])
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_edition_lot_name_step(message: Message, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
+    def process_edition_lot_name_step(message: Message, edition_id, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
         try:
             lot_name = message.text
             msg = bot.send_message(message.chat.id, "Введите название издания в FunPay:")
-            bot.register_next_step_handler(msg, process_description_step, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = True)
+            bot.register_next_step_handler(msg, process_description_step, edition_id, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = True)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
