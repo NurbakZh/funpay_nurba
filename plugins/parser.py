@@ -179,7 +179,7 @@ def generate_description_text(region: str, game_name: str) -> str:
             "❗️❗️❗️ Если нужны другие версии игры (или любые другие игры), пишите в личные сообщения! 😁\n\n"
         )
 
-def save_game_and_lot_names(game_name, lot_name, node_id, region, price):
+def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price):
     try:
         storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
         os.makedirs(storage_dir, exist_ok=True)
@@ -192,7 +192,8 @@ def save_game_and_lot_names(game_name, lot_name, node_id, region, price):
             data = []
 
         existing_entry = next((item for item in data if 
-            item['game_name'] == game_name and 
+            item['game_id'] == game_id and 
+            item['funpay_game_name'] == funpay_game_name and
             item['lot_name'] == lot_name and
             item['node_id'] == node_id and 
             item['region'] == region), None)
@@ -200,7 +201,7 @@ def save_game_and_lot_names(game_name, lot_name, node_id, region, price):
         if existing_entry:
             existing_entry['price'] = price
         else:
-            data.append({'game_name': game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price})
+            data.append({'game_id': game_id, 'funpay_game_name': funpay_game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price})
 
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
@@ -257,9 +258,10 @@ def update_lots(cardinal, bot, message):
             countryCode = 'us'
         saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id)), None)
         if saved_lot:
-            game_name = saved_lot['game_name']
+            game_id = saved_lot['game_id']
+            funpay_game_name = saved_lot['funpay_game_name']
             lot_name = saved_lot['lot_name']
-            game_prices = get_game_prices(game_name)
+            game_prices = get_game_prices(game_id)
             price_for_russia = game_prices["price_rub_ua"]
             price_for_kazakhstan = game_prices["price_rub_kz"]
             # price_for_cis = game_prices["price_rub_ge"]
@@ -303,7 +305,7 @@ def update_lots(cardinal, bot, message):
                     logger.debug("TRACEBACK", exc_info=True)
                     if isinstance(e, FunPayAPI.exceptions.RequestFailedError):
                         logger.debug(e.response.content.decode())
-                bot.send_message(message.chat.id, f"Лот для региона {lot_fields['fields[region]']} **обновлен**: Игра: {game_name}, Лот: {lot_name}", parse_mode='Markdown')
+                bot.send_message(message.chat.id, f"Лот для региона {lot_fields['fields[region]']} **обновлен**: Игра: {funpay_game_name}, Лот: {lot_name}", parse_mode='Markdown')
         time.sleep(10)
 
 def schedule_task(cardinal, bot, message):
@@ -403,25 +405,25 @@ def init_commands(cardinal: Cardinal):
 
     def process_game_name_step(message: Message):
         try:
-            game_name = message.text
-            game_prices = get_game_prices(game_name)
+            game_id = message.text
+            game_prices = get_game_prices(game_id)
             bot.send_message(message.chat.id, f"Игра: {game_prices['name_ua']}\nЦена с долларов: {game_prices['price_rub_en']} руб.\nЦена с гривен: {game_prices['price_rub_ua']} руб.")
             msg = bot.send_message(message.chat.id, "Введите название лота:")
-            bot.register_next_step_handler(msg, process_lot_name_steap, game_prices["name_ua"], game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_kz"], game_prices["price_ru"])
+            bot.register_next_step_handler(msg, process_lot_name_steap, game_id, game_prices["name_ua"], game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_kz"], game_prices["price_ru"])
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_lot_name_steap(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
+    def process_lot_name_steap(message: Message, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
         try:
             lot_name = message.text
             msg = bot.send_message(message.chat.id, "Введите название игры в FunPay:")
-            bot.register_next_step_handler(msg, process_description_step, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name)
+            bot.register_next_step_handler(msg, process_description_step, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_description_step(message: Message, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = False):
+    def process_description_step(message: Message, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = False):
         try:
             funpay_game_name = message.text
             node_id = get_promo_game_link(lot_name)
@@ -497,7 +499,7 @@ def init_commands(cardinal: Cardinal):
                 if launcher_s is not None:
                     lot_fields["fields[launcher]"] = launcher_s
                 if price is not None:
-                    save_game_and_lot_names(funpay_game_name, lot_name, node_id, region, price)
+                    save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price)
                     lot = FunPayAPI.types.LotFields(0, lot_fields)
                     create_lot(cardinal.account, lot)
                     bot.send_message(message.chat.id, f"Лот для региона {region} создан: Игра: {game_name}, Лот: {lot_name}")
