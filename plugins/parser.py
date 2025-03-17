@@ -201,7 +201,7 @@ def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region
             item['game_id'] == game_id and 
             item['funpay_game_name'] == funpay_game_name and
             item['lot_name'] == lot_name and
-            item['node_id'] == node_id and 
+            item['node_id'] == node_id and
             item['region'] == region), None)
 
         if existing_entry:
@@ -563,6 +563,7 @@ def init_commands(cardinal: Cardinal):
                     "fields[desc][ru]": description,
                     "fields[desc][en]": translate_text(description, "en"),
                     "fields[region]": region,
+                    "fields[region2]": region,
                     "secrets": "",
                     "fields[type]": type_of_lot["value"] if type_of_lot else '',
                     "fields[type2]": type_of_lot["value"] if type_of_lot else '',
