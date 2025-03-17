@@ -239,14 +239,16 @@ def parse_steam_app_page(url, steamLoginSecure = None):
     if app_wrapper:
         app_name = app_wrapper.text
 
-    purchase_game_wrapper = soup.find('div', class_='game_area_purchase_game_wrapper')
+    purchase_game_wrappers = soup.find_all('div', class_='game_area_purchase_game_wrapper')
     price = None
-    if purchase_game_wrapper:
+    for purchase_game_wrapper in purchase_game_wrappers:
         price = purchase_game_wrapper.find('div', class_='game_purchase_price')
         if not price:
             price = purchase_game_wrapper.find('div', class_='discount_final_price')
-        price = price.text.strip() if price else None
-
+        if price:
+            price = price.text.strip()
+            break 
+        
     return {
         'название': app_name,
         'цена в гривнах': price

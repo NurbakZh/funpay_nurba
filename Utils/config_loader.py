@@ -319,3 +319,58 @@ def load_auto_delivery_config(config_path: str):
         if "$product" not in lot_response:
             raise ConfigParseError(config_path, lot_title, NoProductVarError())
     return config
+
+
+def load_parser_config(config_path: str):
+    """
+    Парсит и проверяет на правильность конфиг парсера.
+
+    :param config_path: путь до конфига парсера.
+
+    :return: спарсеный конфиг парсера.
+    """
+    try:
+        config = create_config_obj(config_path)
+    except configparser.DuplicateSectionError as e:
+        raise ConfigParseError(config_path, e.section, DuplicateSectionErrorWrapper())
+
+    values = {
+        "rates": {
+            "rub_uah_rate": "any",
+            "rub_usd_rate": "any"
+        },
+        "income": {
+            "1_100": "any",
+            "101_500": "any",
+            "501_2000": "any",
+            "2001_5000": "any",
+            "5001_plus": "any"
+        },
+        "steam": {
+            "steamLoginSecureUa": "any",
+            "steamLoginSecureUs": "any"
+        }
+    }
+
+    for section_name in values:
+        if section_name not in config.sections():
+            print(section_name)
+            raise ConfigParseError(config_path, section_name, SectionNotFoundError())
+
+        for param_name in values[section_name]:
+            try:
+                if values[section_name][param_name] == "any":
+                    check_param(param_name, config[section_name])
+                elif values[section_name][param_name] == "any+empty":
+                    check_param(param_name, config[section_name], valid_values=[None])
+                else:
+                    check_param(param_name, config[section_name], valid_values=values[section_name][param_name])
+            except (ParamNotFoundError, EmptyValueError, ValueNotValidError) as e:
+                raise ConfigParseError(config_path, section_name, e)
+
+    return config
+
+
+def save_parser_config(config: ConfigParser):
+    with open("configs/parser.cfg", "w", encoding="utf-8") as f:
+        config.write(f)

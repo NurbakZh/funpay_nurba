@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
+import Utils.config_loader as cfg_loader
 import FunPayAPI.types
 from FunPayAPI.account import Account
 from logging import getLogger
@@ -37,10 +38,10 @@ RUNNING = False
 settings = {
     "background_task": False,
     "with_secrets": False,
-    "rub_uah_rate": 2.43,
-    "rub_usd_rate": 103.1,
     "uah_kzt_rate_steam_currency": 12.6,
     "uah_en_rate_steam_currency": 42.18,
+    "rub_uah_rate": 2.43,
+    "rub_usd_rate": 103.1,
     "income": {
         "1_100": 5,
         "101_500": 15,
@@ -52,7 +53,7 @@ settings = {
     "steamLoginSecureUs": None,
 }
 
-def get_game_prices(game_name, edition_id = None):
+def get_game_prices(game_name, edition_id = None, kz_uah: bool = False):
     prices = parse_steam_currency_page("https://steam-currency.ru/")
     if prices["uah_kzt_rate"] is not None:
         settings["uah_kzt_rate_steam_currency"] = prices["uah_kzt_rate"]
@@ -102,13 +103,15 @@ def get_game_prices(game_name, edition_id = None):
     else:
         app_details_kz = parse_steam_app_page(app_url_kz)
     price_kz = app_details_kz.get('цена в гривнах', 'Цена не найдена')
-    if price_kz is None:
+    if price_kz is None and kz_uah:
         price_rub_kz = price_rub_ua
+    elif price_kz is None and not kz_uah:
+        price_rub_kz = price_rub_en
     else:
         price_uah_kz = float(price_kz.replace('₸', '').replace(' ', '').replace(',', '.').replace('USD', '')) / float(settings["uah_kzt_rate_steam_currency"])
         
         price_rub_kz = calculate_price_in_rubles(price_uah_kz, settings["rub_uah_rate"], settings["income"])
-        if price_ua and price_uah_kz and abs(price_ua - price_uah_kz) / price_uah_kz > 0.15:
+        if not kz_uah:
             price_rub_kz = price_rub_en
             
     price_ru = price_rub_ua
@@ -124,7 +127,7 @@ def get_game_prices(game_name, edition_id = None):
 
 def generate_summary_text(region: str, game_name: str) -> str:
     if region == "СНГ":
-        return f"🔴🟡🔵СТРАНЫ 𝐂𝐈𝐒(СНГ)🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
+        return f"🔴🟡🔵СТРАНЫ CIS(СНГ)🔴🟡🔵🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴🟡🔵{game_name}🔴🟡🔵"
     elif region == "Другой регион":
         return f"🔴Регионы с валютой Доллары/Евро🔴🎁𝐒𝐓𝐄𝐀𝐌 𝐆𝐈𝐅𝐓🎁🔴{game_name}🔴"
     elif region == "Another region":
@@ -138,7 +141,8 @@ def generate_description_text(region: str, game_name: str) -> str:
             "❗️ Перед покупкой: напишите о намерении приобрести товар.\n"
             "❗️ Стоимость товара всегда актуальна, даже с учётом скидок в Steam.\n"
             f"❗️ Игра отправляется подарком на ваш Steam-аккаунт в: {region}\n"
-            "❗️ Все сделки легальные: игра лицензионная и отправляется напрямую со Steam.\n\n"
+            "❗️ Все сделки легальные: игра лицензионная и отправляется напрямую со Steam.\n"
+            "❗️ Нужно, чтобы был снят лимит в 5 долларов.\n\n"
             "📌 Порядок покупки:\n"
             "1 Оплатить товар.\n"
             "2 Отправить мне ссылку на ваш профиль Steam.\n"
@@ -153,7 +157,8 @@ def generate_description_text(region: str, game_name: str) -> str:
             "❗️ Перед покупкой: напишите о намерении приобрести товар.\n"
             "❗️ Стоимость товара всегда актуальна, даже с учётом скидок в Steam.\n"
             f"❗️ Игра отправляется подарком на ваш Steam-аккаунт в: Регионы, где валюта вашего аккаунта Steam - Доллары/Евро\n"
-            "❗️ Все сделки легальные: игра лицензионная и отправляется напрямую со Steam.\n\n"
+            "❗️ Все сделки легальные: игра лицензионная и отправляется напрямую со Steam.\n"
+            "❗️ Нужно, чтобы был снят лимит в 5 долларов.\n\n"
             "📌 Порядок покупки:\n"
             "1 Оплатить товар.\n"
             "2 Отправить мне ссылку на ваш профиль Steam.\n"
@@ -168,7 +173,8 @@ def generate_description_text(region: str, game_name: str) -> str:
             "❗️ Перед покупкой: напишите о намерении приобрести товар.\n"
             "❗️ Стоимость товара всегда актуальна, даже с учётом скидок в Steam.\n"
             "❗️ Игра отправляется подарком на ваш Steam-аккаунт в регионы: Армения, Азербайджан, Республика Беларусь, Грузия, Киргизстан, Республика Молдова, Таджикистан, Туркменистан, или Узбекистан.\n"
-            "❗️ Все сделки легальные: игра лицензионная и отправляется напрямую со Steam.\n\n"
+            "❗️ Все сделки легальные: игра лицензионная и отправляется напрямую со Steam.\n"
+            "❗️ Нужно, чтобы был снят лимит в 5 долларов.\n\n"
             "📌 Порядок покупки:\n"
             "1 Оплатить товар.\n"
             "2 Отправить мне ссылку на ваш профиль Steam.\n"
@@ -229,6 +235,7 @@ def get_children_ids(obj):
     return ids
 
 def update_lots(cardinal, bot, message):
+    print('апдейт')
     logger.info(f"[LOTS UPDATE] Начал процесс обновления цен.")
     prices = parse_steam_currency_page("https://steam-currency.ru/")
     if prices["uah_kzt_rate"] is not None:
@@ -250,7 +257,6 @@ def update_lots(cardinal, bot, message):
             saved_data = json.load(file)
     else:
         saved_data = []
-
     for parent_id, lot_id in all_lots_ids:
         lot_fields = cardinal.account.get_lots_field(lot_id, parent_id)
         countryCode = 'ua'
@@ -261,7 +267,7 @@ def update_lots(cardinal, bot, message):
             game_id = saved_lot['game_id']
             funpay_game_name = saved_lot['funpay_game_name']
             lot_name = saved_lot['lot_name']
-            game_prices = get_game_prices(game_id)
+            game_prices = get_game_prices(game_name = game_id, kz_uah = False)
             price_for_russia = game_prices["price_rub_ua"]
             price_for_kazakhstan = game_prices["price_rub_kz"]
             # price_for_cis = game_prices["price_rub_ge"]
@@ -306,6 +312,8 @@ def update_lots(cardinal, bot, message):
                     if isinstance(e, FunPayAPI.exceptions.RequestFailedError):
                         logger.debug(e.response.content.decode())
                 bot.send_message(message.chat.id, f"Лот для региона {lot_fields['fields[region]']} **обновлен**: Игра: {funpay_game_name}, Лот: {lot_name}", parse_mode='Markdown')
+            else:
+                logger.info(f"[LOTS COPY] Не изменял лот {parent_id}.")
         time.sleep(10)
 
 def schedule_task(cardinal, bot, message):
@@ -322,6 +330,22 @@ def schedule_task(cardinal, bot, message):
         time.sleep(1)
 
 def init_commands(cardinal: Cardinal):
+    PARSER_CFG = cfg_loader.load_parser_config("configs/parser.cfg")
+
+    settings.update({
+        "rub_uah_rate": float(PARSER_CFG.get("rates", "rub_uah_rate")),
+        "rub_usd_rate": float(PARSER_CFG.get("rates", "rub_usd_rate")),
+        "income": {
+            "1_100": int(PARSER_CFG.get("income", "1_100")),
+            "101_500": int(PARSER_CFG.get("income", "101_500")),
+            "501_2000": int(PARSER_CFG.get("income", "501_2000")),
+            "2001_5000": int(PARSER_CFG.get("income", "2001_5000")),
+            "5001_plus": int(PARSER_CFG.get("income", "5001_plus")),
+        },
+        "steamLoginSecureUa": PARSER_CFG.get("steam", "steamLoginSecureUa"),
+        "steamLoginSecureUs": PARSER_CFG.get("steam", "steamLoginSecureUs"),
+    })
+
     if not cardinal.telegram:
         return
     tg = cardinal.telegram
@@ -355,36 +379,57 @@ def init_commands(cardinal: Cardinal):
             #     bot.send_message(message.chat.id, "Пожалуйста сначала запустите комманду /set_config_steam для установки Steam аккаунтов")
             #     return 
             #msg = bot.send_message(message.chat.id, "Введите название игры в Steam:")
-            msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
-            bot.register_next_step_handler(msg, process_edition_id_step)
+            msg = bot.send_message(message.chat.id, "Выбрать цену для Казахстана(отправьте usd или uah):")
+            bot.register_next_step_handler(msg, process_kz_edition_step)
         except Exception as e:  
             print(e)
 
-    def process_edition_id_step(message: Message):
+    def process_kz_edition_step(message: Message):
+        try:
+            if message.text == "uah":
+                kz_uah = True
+            else:
+                kz_uah = False
+            msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
+            bot.register_next_step_handler(msg, process_edition_id_step, kz_uah)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+            print(f"Error: {str(e)}")
+
+    def process_edition_id_step(message: Message, kz_uah):
         try:
             edition_id = message.text
             msg = bot.send_message(message.chat.id, "Введите название издания игры в Steam:")
-            bot.register_next_step_handler(msg, process_edition_name_step, edition_id)
+            bot.register_next_step_handler(msg, process_edition_name_step, edition_id, kz_uah)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_edition_name_step(message: Message, edition_id):
+    def process_edition_name_step(message: Message, edition_id, kz_uah):
         try:
             edition_name = message.text
-            edition_prices = get_game_prices(edition_id, edition_name)
+            edition_prices = get_game_prices(game_name = edition_id, edition_id = edition_name, kz_uah = kz_uah)
             bot.send_message(message.chat.id, f"Игра: {edition_prices['name_ua']}\nЦена с долларов: {edition_prices['price_rub_en']} руб.\nЦена с гривен: {edition_prices['price_rub_ua']} руб.")
             msg = bot.send_message(message.chat.id, "Введите название лота:")
-            bot.register_next_step_handler(msg, process_edition_lot_name_step, edition_id, edition_prices["name_ua"], edition_prices["price_rub_ua"], edition_prices["price_rub_en"], edition_prices["price_rub_kz"], edition_prices["price_ru"])
+            bot.register_next_step_handler(msg, process_edition_lot_name_step, edition_id, edition_prices["name_ua"], edition_prices["price_rub_ua"], edition_prices["price_rub_en"], edition_prices["price_rub_kz"], edition_prices["price_ru"], kz_uah)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_edition_lot_name_step(message: Message, edition_id, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
+    def process_edition_lot_name_step(message: Message, edition_id, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, kz_uah):
         try:
             lot_name = message.text
-            msg = bot.send_message(message.chat.id, "Введите название издания в FunPay:")
-            bot.register_next_step_handler(msg, process_description_step, edition_id, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = True)
+            msg = bot.send_message(message.chat.id, "Введите название издания в Funpay:")
+            bot.register_next_step_handler(msg, process_edition_russia_step, edition_id, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah, is_edition = True)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+            print(f"Error: {str(e)}")
+
+    def process_edition_russia_step(message: Message, edition_id, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah, is_edition = True):
+        try:
+            funpay_game_name = message.text
+            msg = bot.send_message(message.chat.id, "Добавлять ли лот для России(да/нет):")
+            bot.register_next_step_handler(msg, process_description_step, edition_id, funpay_game_name, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah, is_edition = True)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
@@ -398,34 +443,58 @@ def init_commands(cardinal: Cardinal):
             #     bot.send_message(message.chat.id, "Пожалуйста сначала запустите комманду /set_config_steam для установки Steam аккаунтов")
             #     return 
             #msg = bot.send_message(message.chat.id, "Введите название игры в Steam:")
-            msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
-            bot.register_next_step_handler(msg, process_game_name_step)
+            msg = bot.send_message(message.chat.id, "Выбрать цену для Казахстана(отправьте usd или uah):")
+            bot.register_next_step_handler(msg, process_kz_price_step)
         except Exception as e:  
             print(e)
 
-    def process_game_name_step(message: Message):
+    def process_kz_price_step(message: Message):
         try:
-            game_id = message.text
-            game_prices = get_game_prices(game_id)
-            bot.send_message(message.chat.id, f"Игра: {game_prices['name_ua']}\nЦена с долларов: {game_prices['price_rub_en']} руб.\nЦена с гривен: {game_prices['price_rub_ua']} руб.")
-            msg = bot.send_message(message.chat.id, "Введите название лота:")
-            bot.register_next_step_handler(msg, process_lot_name_steap, game_id, game_prices["name_ua"], game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_kz"], game_prices["price_ru"])
+            if message.text == "uah":
+                kz_uah = True
+            else:
+                kz_uah = False
+            msg = bot.send_message(message.chat.id, "Введите id игры в Steam:")
+            bot.register_next_step_handler(msg, process_game_name_step, kz_uah)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_lot_name_steap(message: Message, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru):
+    def process_game_name_step(message: Message, kz_uah):
+        try:
+            game_id = message.text
+            game_prices = get_game_prices(game_name = game_id, kz_uah = kz_uah)
+            bot.send_message(message.chat.id, f"Игра: {game_prices['name_ua']}\nЦена с долларов: {game_prices['price_rub_en']} руб.\nЦена с гривен: {game_prices['price_rub_ua']} руб.")
+            msg = bot.send_message(message.chat.id, "Введите название лота:")
+            bot.register_next_step_handler(msg, process_lot_name_steap, game_id, game_prices["name_ua"], game_prices["price_rub_ua"], game_prices["price_rub_en"], game_prices["price_rub_kz"], game_prices["price_ru"], kz_uah)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+            print(f"Error: {str(e)}")
+
+    def process_lot_name_steap(message: Message, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, kz_uah):
         try:
             lot_name = message.text
             msg = bot.send_message(message.chat.id, "Введите название игры в FunPay:")
-            bot.register_next_step_handler(msg, process_description_step, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name)
+            bot.register_next_step_handler(msg, ask_for_russia, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_description_step(message: Message, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, is_edition = False):
+    def ask_for_russia(message: Message, game_id, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah):
         try:
             funpay_game_name = message.text
+            msg = bot.send_message(message.chat.id, "Добавлять ли лот для России(да/нет):")
+            bot.register_next_step_handler(msg, process_description_step, game_id, funpay_game_name, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah, is_edition = False)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+            print(f"Error: {str(e)}")
+
+    def process_description_step(message: Message, game_id, funpay_game_name, game_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah, is_edition = False):
+        try:
+            if message.text == "да":
+                is_russia = True
+            else:
+                is_russia = False
             node_id = get_promo_game_link(lot_name)
             if is_edition:
                 lot_fields = cardinal.account.get_lots_variants(node_id, edition_name = funpay_game_name)
@@ -458,16 +527,18 @@ def init_commands(cardinal: Cardinal):
             price_for_kazakhstan = price_rub_kz
             if price_rub_ua and price_ru and abs(price_rub_ua - price_ru) / price_ru > 0.15:
                 price_for_russia = price_rub_en
-            regions = ["Россия", "Казахстан", "Украина", "СНГ", "Турция", "Аргентина", "Другой регион"]
-            prices = [price_for_russia, price_for_kazakhstan, price_rub_ua, price_rub_en, price_rub_en, price_rub_en, price_rub_en]
+            regions = (["Россия"] if is_russia else []) + ["Казахстан", "Украина", "СНГ", "Турция", "Аргентина", "Другой регион"]
+            prices = (
+                [price_for_russia] if is_russia else []
+            ) + [price_for_kazakhstan, price_rub_ua, price_rub_en, price_rub_en, price_rub_en, price_rub_en]
            
             for region, price in zip(regions, prices):
                 if region == 'СНГ':
-                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Купить ")) else game_name
+                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Pre-Purchase " "Купить ")) else game_name
                     summary = generate_summary_text(region, game_title)
                     summary_en = generate_summary_text("CIS countries", game_title)
                 else:
-                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Купить ")) else game_name
+                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Pre-Purchase " "Купить ")) else game_name
                     summary = generate_summary_text(region, game_title)
                     summary_en = generate_summary_text(translate_text(region, "en"), game_title)
                 description = generate_description_text(region, game_title)
@@ -598,11 +669,14 @@ def init_commands(cardinal: Cardinal):
 
     def process_steam_ua_step(message: Message):
         settings["steamLoginSecureUa"] = message.text
+        PARSER_CFG["steam"]["steamLoginSecureUa"] = message.text
         msg = bot.send_message(message.chat.id, "Введите steamLoginSecure для США(берется из Cookies, после входа в аккаунт Steam):")
         bot.register_next_step_handler(msg, process_steam_us_step)
 
     def process_steam_us_step(message: Message):
         settings["steamLoginSecureUs"] = message.text
+        PARSER_CFG["steam"]["steamLoginSecureUs"] = message.text
+        cfg_loader.save_parser_config(PARSER_CFG)
         bot.send_message(message.chat.id, "Конфигурации Steam сохранены")
 
     def handle_config_price(message: Message):
@@ -612,6 +686,7 @@ def init_commands(cardinal: Cardinal):
     def process_rub_uah_rate_step(message: Message):
         try:
             settings["rub_uah_rate"] = float(message.text)
+            PARSER_CFG["rates"]["rub_uah_rate"] = message.text
             msg = bot.send_message(message.chat.id, "Введите курс доллар/руб:")
             bot.register_next_step_handler(msg, process_rub_usd_rate_step)
         except ValueError:
@@ -621,6 +696,7 @@ def init_commands(cardinal: Cardinal):
     def process_rub_usd_rate_step(message: Message):
         try:
             settings["rub_usd_rate"] = float(message.text)
+            PARSER_CFG["rates"]["rub_usd_rate"] = message.text
             msg = bot.send_message(message.chat.id, "Выберите прибыль в рублях на цены от 1 до 100руб:")
             bot.register_next_step_handler(msg, process_income_1_100_step)
         except ValueError:
@@ -631,6 +707,7 @@ def init_commands(cardinal: Cardinal):
         try:
             settings["income"] = {}
             settings["income"]["1_100"] = float(message.text)
+            PARSER_CFG["income"]["1_100"] = message.text
             msg = bot.send_message(message.chat.id, "Выберите прибыль в рублях на цены от 101 до 500руб:")
             bot.register_next_step_handler(msg, process_income_101_500_step)
         except ValueError:
@@ -640,6 +717,7 @@ def init_commands(cardinal: Cardinal):
     def process_income_101_500_step(message: Message):
         try:
             settings["income"]["101_500"] = float(message.text)
+            PARSER_CFG["income"]["101_500"] = message.text
             msg = bot.send_message(message.chat.id, "Выберите прибыль в рублях на цены от 501 до 2000руб:")
             bot.register_next_step_handler(msg, process_income_501_2000_step)
         except ValueError:
@@ -649,6 +727,7 @@ def init_commands(cardinal: Cardinal):
     def process_income_501_2000_step(message: Message):
         try:
             settings["income"]["501_2000"] = float(message.text)
+            PARSER_CFG["income"]["501_2000"] = message.text
             msg = bot.send_message(message.chat.id, "Выберите прибыль в рублях на цены от 2001 до 5000руб:")
             bot.register_next_step_handler(msg, process_income_2001_5000_step)
         except ValueError:
@@ -658,6 +737,7 @@ def init_commands(cardinal: Cardinal):
     def process_income_2001_5000_step(message: Message):
         try:
             settings["income"]["2001_5000"] = float(message.text)
+            PARSER_CFG["income"]["2001_5000"] = message.text
             msg = bot.send_message(message.chat.id, "Выберите прибыль в рублях на цены от 5001руб+:")
             bot.register_next_step_handler(msg, process_income_5001_plus_step)
         except ValueError:
@@ -667,6 +747,8 @@ def init_commands(cardinal: Cardinal):
     def process_income_5001_plus_step(message: Message):
         try:
             settings["income"]["5001_plus"] = float(message.text)
+            PARSER_CFG["income"]["5001_plus"] = message.text
+            cfg_loader.save_parser_config(PARSER_CFG)
             bot.send_message(message.chat.id, "Конфигурации сохранены")
         except ValueError:
             bot.send_message(message.chat.id, "Неверный ввод. Пожалуйста, введите число.")
