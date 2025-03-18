@@ -320,7 +320,7 @@ def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 21 and now.minute == 10:
+        if now.hour == 8 and now.minute == 26:
             update_lots(cardinal, bot, message)
 
     schedule.every().minute.do(job)
@@ -396,7 +396,7 @@ def init_commands(cardinal: Cardinal):
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_ru_edition_step(message: Message):
+    def process_ru_edition_step(message: Message, kz_uah):
         try:
             if message.text == "uah":
                 ru_uah = True
@@ -472,7 +472,7 @@ def init_commands(cardinal: Cardinal):
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
 
-    def process_ru_price_step(message: Message):
+    def process_ru_price_step(message: Message, kz_uah):
         try:
             if message.text == "uah":
                 ru_uah = True

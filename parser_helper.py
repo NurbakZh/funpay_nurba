@@ -219,7 +219,7 @@ def parse_steam_app_page(url, steamLoginSecure = None):
         "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         "X-requested-with": "XMLHttpRequest",
     }
-    if steamLoginSecure is not None:
+    if steamLoginSecure is not None and steamLoginSecure != "None":
         headers["Cookie"] = f'steamLoginSecure={steamLoginSecure}'
 
     cookies = {
