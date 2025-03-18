@@ -441,7 +441,7 @@ def init_commands(cardinal: Cardinal):
         try:
             funpay_game_name = message.text
             msg = bot.send_message(message.chat.id, "Добавлять ли лот для России(да/нет):")
-            bot.register_next_step_handler(msg, process_description_step, edition_id, funpay_game_name, edition_name, price_rub_ua, price_rub_en, price_rub_kz, price_ru, lot_name, kz_uah, ru_uah, is_edition = True)
+            bot.register_next_step_handler(msg, process_description_step, game_id=edition_id, funpay_game_name=funpay_game_name, game_name=edition_name, price_rub_ua=price_rub_ua, price_rub_en=price_rub_en, price_rub_kz=price_rub_kz, price_ru=price_ru, lot_name=lot_name, kz_uah=kz_uah, ru_uah=ru_uah, is_edition = True)
         except Exception as e:
             bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
             print(f"Error: {str(e)}")
@@ -559,11 +559,11 @@ def init_commands(cardinal: Cardinal):
            
             for region, price in zip(regions, prices):
                 if region == 'СНГ':
-                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Pre-Purchase " "Купить ")) else game_name
+                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Pre-Purchase ", "Купить ", "Предзаказ ")) else game_name
                     summary = generate_summary_text(region, game_title)
                     summary_en = generate_summary_text("CIS countries", game_title)
                 else:
-                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Pre-Purchase " "Купить ")) else game_name
+                    game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Pre-Purchase ", "Купить ", "Предзаказ ")) else game_name
                     summary = generate_summary_text(region, game_title)
                     summary_en = generate_summary_text(translate_text(region, "en"), game_title)
                 description = generate_description_text(region, game_title)
