@@ -70,8 +70,8 @@ def get_game_prices(game_name, edition_id = None, kz_uah: bool = False, ru_uah: 
     price_ua = float(price_ua.replace('$', '').replace('руб.', '').replace('₸', '').replace('₴', '').replace(' ', '').replace(',', '.').replace('USD', ''))
     price_rub_ua = calculate_price_in_rubles(price_ua, settings["rub_uah_rate"], settings["income"])
 
-    #app_url_en = parse_steam_search(game_name, settings.get('steamLoginSecureUs')) + f"?cc=us"
-    app_url_en = f"https://store.steampowered.com/app/{game_name}" + f"?cc=us"
+    #app_url_en = parse_steam_search(game_name, settings.get('steamLoginSecureUs')) + f"?cc=en"
+    app_url_en = f"https://store.steampowered.com/app/{game_name}" + f"?cc=en"
     if edition_id:
         app_details_en = parse_steam_edition_page(app_url_en, settings.get('steamLoginSecureUs'), edition_id)
     else:

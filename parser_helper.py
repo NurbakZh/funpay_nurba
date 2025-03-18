@@ -261,7 +261,7 @@ def parse_steam_edition_page(url, steamLoginSecure = None, edition_id = None):
         "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         "X-requested-with": "XMLHttpRequest",
     }
-    if steamLoginSecure is not None:
+    if steamLoginSecure is not None and steamLoginSecure != "None":
         headers["Cookie"] = f'steamLoginSecure={steamLoginSecure}'
 
     cookies = {
@@ -280,6 +280,7 @@ def parse_steam_edition_page(url, steamLoginSecure = None, edition_id = None):
 
     purchase_game_wrappers = soup.find_all('div', class_='game_area_purchase_game_wrapper')
     found_edition = False
+        
     for wrapper in purchase_game_wrappers:
         edition_title = wrapper.find('h1')
         if edition_title and edition_id:
@@ -288,7 +289,6 @@ def parse_steam_edition_page(url, steamLoginSecure = None, edition_id = None):
             if edition_id.lower() in title_text.lower():
                 # Found the correct edition wrapper
                 app_name = title_text
-                
                 # Try to find price within this wrapper
                 price_div = wrapper.find('div', class_='game_purchase_price')
                 if not price_div:
@@ -299,6 +299,7 @@ def parse_steam_edition_page(url, steamLoginSecure = None, edition_id = None):
                 found_edition = True
                 break
     
+
     if not found_edition and purchase_game_wrappers:
         first_wrapper = purchase_game_wrappers[0]
         edition_title = first_wrapper.find('h1')
