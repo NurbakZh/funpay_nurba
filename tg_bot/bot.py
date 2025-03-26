@@ -1053,7 +1053,7 @@ class TGBot:
         self.bot.send_message(c.message.chat.id, _("old_mode_help"))
 
     def empty_callback(self, c: CallbackQuery):
-        self.bot.answer_callback_query(c.id, "🤑 @sidor_donate 🤑")
+        self.bot.answer_callback_query(c.id, "🤑 @nurba_zh 🤑")
 
     def switch_lang(self, c: CallbackQuery):
         lang = c.data.split(":")[1]
@@ -1062,11 +1062,11 @@ class TGBot:
         self.cardinal.save_config(self.cardinal.MAIN_CFG, "configs/_main.cfg")
         if localizer.current_language == "en":
             self.bot.answer_callback_query(c.id, "The translation may be incomplete and contain errors.\n\n"
-                                                 "If you find errors in the translation, let @sidor0912 know.\n\n"
+                                                 "If you find errors in the translation, let @nurba_zh know.\n\n"
                                                  "Thank you :)", show_alert=True)
         elif localizer.current_language == "uk":
             self.bot.answer_callback_query(c.id, "Переклад складено за допомогою ChatGPT.\n"
-                                                 "Повідомте @sidor0912, якщо знайдете помилки.", show_alert=True)
+                                                 "Повідомте @nurba_zh, якщо знайдете помилки.", show_alert=True)
         elif localizer.current_language == "ru":
             self.bot.answer_callback_query(c.id, '«А я сейчас вам покажу, откуда на Беларусь готовилось нападение»',
                                            show_alert=True)
@@ -1232,7 +1232,7 @@ class TGBot:
                     break
             if new_name != name:
                 self.bot.set_my_name(new_name)
-        sh_text = "🛠️ github.com/sidor0912/FunPayCardinal 💰 @sidor_donate 👨‍💻 @sidor0912 🧩 @fpc_plugins 🔄 @fpc_updates 💬 @funpay_cardinal"
+        sh_text = "🛠️ github.com/sidor0912/FunPayCardinal @nurba_zh"
         res = self.bot.get_my_short_description().short_description
         if res != sh_text:
             self.bot.set_my_short_description(sh_text)

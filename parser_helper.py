@@ -363,7 +363,7 @@ def check_for_last():
 
     if EMAIL_ACCOUNT is None or EMAIL_PASSWORD is None:
         print("Environment variables EMAIL_ACCOUNT and/or EMAIL_PASSWORD are not set.")
-        return
+        return "нет почты"
 
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
     mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
@@ -384,7 +384,7 @@ def check_for_last():
 
     if result != "OK" and result2 != "OK":
         print("No emails found matching the criteria.")
-        return
+        return "нет почты"
 
     email_ids = data[0].split() if data[0] else []
     email_ids2 = data2[0].split() if data2[0] else []
@@ -392,7 +392,7 @@ def check_for_last():
     if not email_ids and not email_ids2:
         print("No emails found matching the criteria")
         mail.logout()
-        return
+        return "нет почты"
 
     # Get the last email from each search result
     latest_emails = []
@@ -434,28 +434,33 @@ def check_for_last():
                 return verification_code
             
             mail.logout()
-            return "noCodeFound"
+            return "нет кода"
 
     mail.logout()
-    return "noCodeFound"
+    return "нет кода"
 
 def check_for_last_with_account(account: str):
     # Load accounts from JSON file
     with open('storage/plugins/accounts.json', 'r') as f:
-        accounts = json.load(f)
-    
+        games = json.load(f)
     # Find account details
-    account_details = next((acc for acc in accounts if acc['login'] == account), None)
-    if not account_details:
-        print(f"Account {account} not found in accounts.json")
-        return
-        
-    EMAIL_ACCOUNT = account_details.get('email')
-    EMAIL_PASSWORD = account_details.get('email_password')
+    account_details = None
+    for game in games:
+        for acc in game['accounts']:
+            if acc['login'] == account:
+                account_details = acc
+                break
 
-    if EMAIL_ACCOUNT is None or EMAIL_PASSWORD is None:
+    if account_details is None:
+        print(f"Account {account} not found in accounts.json")
+        return "нет такого аккаунта с social club"
+        
+    EMAIL_ACCOUNT = account_details.get('emailLogin')
+    EMAIL_PASSWORD = account_details.get('emailPassword')
+
+    if EMAIL_ACCOUNT == "none" or EMAIL_PASSWORD == "none":
         print("Email credentials not found for account.")
-        return
+        return "нет почты и пароля"
 
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
     mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
@@ -471,7 +476,7 @@ def check_for_last_with_account(account: str):
 
     if result != "OK" and result2 != "OK":
         print("No emails found matching the criteria.")
-        return
+        return "нет почты"
 
     email_ids = data[0].split() if data[0] else []
     email_ids2 = data2[0].split() if data2[0] else []
@@ -479,7 +484,7 @@ def check_for_last_with_account(account: str):
     if not email_ids and not email_ids2:
         print("No emails found matching the criteria")
         mail.logout()
-        return
+        return "нет почты"
 
     # Get the last email from each search result
     latest_emails = []
@@ -500,7 +505,7 @@ def check_for_last_with_account(account: str):
     latest_emails.sort(key=lambda x: x[1], reverse=True)
     if not latest_emails:
         mail.logout()
-        return
+        return "нет почты"
 
     most_recent_msg = latest_emails[0][0]
 
@@ -521,10 +526,10 @@ def check_for_last_with_account(account: str):
                 return verification_code
             
             mail.logout()
-            return "noCodeFound"
+            return "нет кода"
 
     mail.logout()
-    return "noCodeFound"
+    return "нет кода"
 
 #if __name__ == "__main__":
 #   main()

@@ -185,7 +185,7 @@ def generate_description_text(region: str, game_name: str) -> str:
             "❗️❗️❗️ Если нужны другие версии игры (или любые другие игры), пишите в личные сообщения! 😁\n\n"
         )
 
-def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price):
+def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, ru_uah):
     try:
         storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
         os.makedirs(storage_dir, exist_ok=True)
@@ -207,7 +207,7 @@ def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region
         if existing_entry:
             existing_entry['price'] = price
         else:
-            data.append({'game_id': game_id, 'funpay_game_name': funpay_game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price})
+            data.append({'game_id': game_id, 'funpay_game_name': funpay_game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price, "kz_uah": kz_uah, "ru_uah": ru_uah})
 
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
@@ -235,7 +235,6 @@ def get_children_ids(obj):
     return ids
 
 def update_lots(cardinal, bot, message):
-    print('апдейт')
     logger.info(f"[LOTS UPDATE] Начал процесс обновления цен.")
     prices = parse_steam_currency_page("https://steam-currency.ru/")
     if prices["uah_kzt_rate"] is not None:
@@ -267,7 +266,9 @@ def update_lots(cardinal, bot, message):
             game_id = saved_lot['game_id']
             funpay_game_name = saved_lot['funpay_game_name']
             lot_name = saved_lot['lot_name']
-            game_prices = get_game_prices(game_name = game_id, kz_uah = False)
+            kz_uah = saved_lot['kz_uah']
+            ru_uah = saved_lot['ru_uah']
+            game_prices = get_game_prices(game_name = game_id, kz_uah = kz_uah, ru_uah = ru_uah)
             price_for_russia = game_prices["price_rub_ua"]
             price_for_kazakhstan = game_prices["price_rub_kz"]
             # price_for_cis = game_prices["price_rub_ge"]
@@ -320,7 +321,7 @@ def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
     def job():
         now = datetime.now(moscow_tz)
-        if now.hour == 8 and now.minute == 26:
+        if now.hour == 21 and now.minute == 10:
             update_lots(cardinal, bot, message)
 
     schedule.every().minute.do(job)
@@ -353,7 +354,7 @@ def init_commands(cardinal: Cardinal):
 
     def get_last_email(message: Message):
         last_email = check_for_last()
-        if last_email == "noCodeFound":
+        if last_email == "нет кода" or last_email == "нет почты":
             bot.send_message(message.chat.id, f"Последнее сообщение из почты с кодом не найдено")
         else:
             bot.send_message(message.chat.id, f"Код из последнего сообщения из почты: {last_email}")
@@ -596,7 +597,7 @@ def init_commands(cardinal: Cardinal):
                 if launcher_s is not None:
                     lot_fields["fields[launcher]"] = launcher_s
                 if price is not None:
-                    save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price)
+                    save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, ru_uah)
                     lot = FunPayAPI.types.LotFields(0, lot_fields)
                     create_lot(cardinal.account, lot)
                     bot.send_message(message.chat.id, f"Лот для региона {region} создан: Игра: {game_name}, Лот: {lot_name}")

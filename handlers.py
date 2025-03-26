@@ -175,17 +175,23 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 
         elif text and text.startswith("!get_code"):
             try:
+                print(text)
                 if len(text.split()) < 2:
                     raise ValueError("Missing login parameter")
                 account = text.split("!get_code ")[1].strip()
-                print(account)
-                text = f"Ваш код верификации/Your verification code: {check_for_last_with_account(account)}"
+                code = check_for_last_with_account(account)
+                if len(code.split()) < 2:
+                    text = f"Ваш код верификации/Your verification code: {code}"
+                else:
+                    text = f"❌Ошибка/Error: {code}"
                 Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
                 logger.info(f"Получил запрос на код Steam Guard для аккаунта {account} от пользователя {chat_name} (CID: {chat_id})")
                 break
             except Exception as e:
-                text = "❌ Неверный формат команды. Используйте: !get_code <логин>"
-                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                print("exception", e)
+                if str(e):
+                    text = "❌ Неверный формат команды. Используйте: !get_code <логин>"
+                    Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
                 logger.error(f"Ошибка при обработке команды !get_code: {str(e)}")
                 break
 
