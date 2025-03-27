@@ -242,10 +242,12 @@ def compare_and_get_changes(old_data, new_data):
             removed_categories = set(old_filters.keys()) - set(new_filters.keys())
             
             for category in added_categories:
-                changes.append(f"📋 Добавлена категория фильтров '{category}' в разделе '{section}' игры {game_title}")
+                translated_category = translate_text(category, "ru")
+                changes.append(f"📋 Добавлена категория фильтров '{translated_category}' в разделе '{section}' игры {game_title}")
             
             for category in removed_categories:
-                changes.append(f"🗑️ Удалена категория фильтров '{category}' в разделе '{section}' игры {game_title}")
+                translated_category = translate_text(category, "ru")
+                changes.append(f"🗑️ Удалена категория фильтров '{translated_category}' в разделе '{section}' игры {game_title}")
             
             # Check for changes in existing filter categories
             common_categories = set(new_filters.keys()) & set(old_filters.keys())
