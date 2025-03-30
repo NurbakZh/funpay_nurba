@@ -10,6 +10,7 @@ import pytz
 from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
+from parser_helper import translate_text
 
 if TYPE_CHECKING:
     from cardinal import Cardinal

@@ -185,7 +185,7 @@ def generate_description_text(region: str, game_name: str) -> str:
             "❗️❗️❗️ Если нужны другие версии игры (или любые другие игры), пишите в личные сообщения! 😁\n\n"
         )
 
-def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, ru_uah):
+def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, ru_uah, server_id):
     try:
         storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
         os.makedirs(storage_dir, exist_ok=True)
@@ -207,7 +207,7 @@ def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region
         if existing_entry:
             existing_entry['price'] = price
         else:
-            data.append({'game_id': game_id, 'funpay_game_name': funpay_game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price, "kz_uah": kz_uah, "ru_uah": ru_uah})
+            data.append({'game_id': game_id, 'funpay_game_name': funpay_game_name, 'lot_name': lot_name, "node_id": node_id, "region": region, "price": price, "kz_uah": kz_uah, "ru_uah": ru_uah, "server_id": server_id})
 
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
@@ -261,7 +261,11 @@ def update_lots(cardinal, bot, message):
         countryCode = 'ua'
         if lot_fields['fields[region]'] not in ["Россия", "Казахстан", "Украина", "СНГ"]:
             countryCode = 'us'
-        saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id)), None)
+        if lot_fields['server_id'] is not None:
+            saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id) 
+                and item['server_id'] == lot_fields['server_id']), None)
+        else:
+            saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id)), None)
         if saved_lot:
             game_id = saved_lot['game_id']
             funpay_game_name = saved_lot['funpay_game_name']
@@ -568,6 +572,21 @@ def init_commands(cardinal: Cardinal):
                     summary = generate_summary_text(region, game_title)
                     summary_en = generate_summary_text(translate_text(region, "en"), game_title)
                 description = generate_description_text(region, game_title)
+                payment_region = "США"
+                if region in ["Украина"]:
+                    payment_region = "Украниа"
+                elif region == "Казахстан":
+                    if kz_uah:
+                        payment_region = "Украниа"
+                    else:
+                        payment_region = "США"
+                elif region == "Россия":
+                    if ru_uah:
+                        payment_region = "Украниа"
+                    else:
+                        payment_region = "США"
+                payment_msg = "Регион отправки – " + payment_region + " (информация для продавца)\n" +
+                "Отправьте ссылку на быстрое приглашение в друзья."
                 lot_fields = {
                     "active": "on",
                     "deactivate_after_sale": "",
@@ -590,6 +609,8 @@ def init_commands(cardinal: Cardinal):
                     "fields[desc][en]": translate_text(description, "en"),
                     "fields[region]": region,
                     "fields[region2]": region,
+                    "fields[payment_msg][ru]": payment_msg,
+                    "fields[payment_msg][en]": translate_text(payment_msg, "en"),,
                     "secrets": "",
                     "fields[type]": type_of_lot["value"] if type_of_lot else '',
                     "fields[type2]": type_of_lot["value"] if type_of_lot else '',
@@ -597,7 +618,7 @@ def init_commands(cardinal: Cardinal):
                 if launcher_s is not None:
                     lot_fields["fields[launcher]"] = launcher_s
                 if price is not None:
-                    save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, ru_uah)
+                    save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, ru_uah, suitable_game_option["value"])
                     lot = FunPayAPI.types.LotFields(0, lot_fields)
                     create_lot(cardinal.account, lot)
                     bot.send_message(message.chat.id, f"Лот для региона {region} создан: Игра: {game_name}, Лот: {lot_name}")
