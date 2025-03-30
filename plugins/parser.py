@@ -585,8 +585,10 @@ def init_commands(cardinal: Cardinal):
                         payment_region = "Украниа"
                     else:
                         payment_region = "США"
-                payment_msg = "Регион отправки – " + payment_region + " (информация для продавца)\n" +
-                "Отправьте ссылку на быстрое приглашение в друзья."
+                payment_msg = (
+    "Регион отправки – " + payment_region + " (информация для продавца)\n"
+    "Отправьте ссылку на быстрое приглашение в друзья."
+)
                 lot_fields = {
                     "active": "on",
                     "deactivate_after_sale": "",
