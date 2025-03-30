@@ -612,7 +612,7 @@ def init_commands(cardinal: Cardinal):
                     "fields[region]": region,
                     "fields[region2]": region,
                     "fields[payment_msg][ru]": payment_msg,
-                    "fields[payment_msg][en]": translate_text(payment_msg, "en"),,
+                    "fields[payment_msg][en]": translate_text(payment_msg, "en"),
                     "secrets": "",
                     "fields[type]": type_of_lot["value"] if type_of_lot else '',
                     "fields[type2]": type_of_lot["value"] if type_of_lot else '',
