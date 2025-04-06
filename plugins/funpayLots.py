@@ -231,38 +231,6 @@ def compare_and_get_changes(old_data, new_data):
             
         for name in removed_sections:
             changes.append(f"➖ Удален раздел '{name}' из игры {game_title}")
-        
-        # Check filter changes in existing sections
-        common_sections = set(new_items.keys()) & set(old_items.keys())
-        for section in common_sections:
-            old_filters = old_items[section].get('filters', {})
-            new_filters = new_items[section].get('filters', {})
-            
-            # Check for new and removed filter categories
-            added_categories = set(new_filters.keys()) - set(old_filters.keys())
-            removed_categories = set(old_filters.keys()) - set(new_filters.keys())
-            
-            for category in added_categories:
-                translated_category = translate_text(category, "ru")
-                changes.append(f"📋 Добавлена категория фильтров '{translated_category}' в разделе '{section}' игры {game_title}")
-            
-            for category in removed_categories:
-                translated_category = translate_text(category, "ru")
-                changes.append(f"🗑️ Удалена категория фильтров '{translated_category}' в разделе '{section}' игры {game_title}")
-            
-            # Check for changes in existing filter categories
-            common_categories = set(new_filters.keys()) & set(old_filters.keys())
-            for category in common_categories:
-                old_values = set(old_filters[category])
-                new_values = set(new_filters[category])
-                
-                added_values = new_values - old_values
-                removed_values = old_values - new_values
-                
-                if added_values:
-                    changes.append(f"➕ Добавлены опции '{', '.join(added_values)}' в категории '{category}' раздела '{section}' игры {game_title}")
-                if removed_values:
-                    changes.append(f"➖ Удалены опции '{', '.join(removed_values)}' в категории '{category}' раздела '{section}' игры {game_title}")
     
     # Check for removed games
     for game_title in old_data:

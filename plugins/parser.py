@@ -256,16 +256,36 @@ def update_lots(cardinal, bot, message):
             saved_data = json.load(file)
     else:
         saved_data = []
+    
+    # Создаем уникальный ключ для каждого лота, чтобы избежать дублирования
+    processed_lots = set()
+    
     for parent_id, lot_id in all_lots_ids:
         lot_fields = cardinal.account.get_lots_field(lot_id, parent_id)
+        
+        # Создаем уникальный ключ для лота на основе lot_id и region
+        lot_key = f"{lot_id}_{lot_fields.get('fields[region]', '')}"
+        
+        # Если этот лот уже был обработан, пропускаем его
+        if lot_key in processed_lots:
+            logger.info(f"[LOTS UPDATE] Пропускаю уже обработанный лот {lot_id} для региона {lot_fields.get('fields[region]', '')}")
+            continue
+        
+        # Добавляем в множество обработанных лотов
+        processed_lots.add(lot_key)
+        
         countryCode = 'ua'
         if lot_fields['fields[region]'] not in ["Россия", "Казахстан", "Украина", "СНГ"]:
             countryCode = 'us'
+        
         if lot_fields['server_id'] is not None:
             saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id) 
-                and item['server_id'] == lot_fields['server_id']), None)
+                and item['server_id'] == lot_fields['server_id'] 
+                and item['region'] == lot_fields['fields[region]']), None)
         else:
-            saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id)), None)
+            saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id)
+                and item['region'] == lot_fields['fields[region]']), None)
+        
         if saved_lot:
             game_id = saved_lot['game_id']
             funpay_game_name = saved_lot['funpay_game_name']
@@ -275,7 +295,6 @@ def update_lots(cardinal, bot, message):
             game_prices = get_game_prices(game_name = game_id, kz_uah = kz_uah, ru_uah = ru_uah)
             price_for_russia = game_prices["price_rub_ua"]
             price_for_kazakhstan = game_prices["price_rub_kz"]
-            # price_for_cis = game_prices["price_rub_ge"]
         
             if countryCode == 'us':
                 new_price_rub = game_prices["price_rub_en"]
@@ -302,23 +321,25 @@ def update_lots(cardinal, bot, message):
 
                 try:
                     cardinal.account.save_lot(lot)
-                    logger.info(f"[LOTS COPY] Изменил лот {parent_id}.")
+                    logger.info(f"[LOTS COPY] Изменил лот {parent_id} для региона {lot_fields['fields[region]']}.")
                     
                     for item in saved_data:
-                        if item['node_id'] == str(lot_id):
+                        if item['node_id'] == str(lot_id) and item['region'] == lot_fields['fields[region]']:
                             item['price'] = float(new_price_rub)
                     
+                    # Записываем обновленные данные в файл после КАЖДОГО обновления цены
                     with open(file_path, 'w', encoding='utf-8') as file:
                         json.dump(saved_data, file, ensure_ascii=False, indent=4)
+                        
+                    bot.send_message(message.chat.id, f"Лот для региона {lot_fields['fields[region]']} **обновлен**: Игра: {funpay_game_name}, Лот: {lot_name}", parse_mode='Markdown')
                 except Exception as e:
                     print(e)
-                    logger.error(f"[LOTS COPY] Не удалось изменить лот {parent_id}.")
+                    logger.error(f"[LOTS COPY] Не удалось изменить лот {parent_id} для региона {lot_fields['fields[region]']}.")
                     logger.debug("TRACEBACK", exc_info=True)
                     if isinstance(e, FunPayAPI.exceptions.RequestFailedError):
                         logger.debug(e.response.content.decode())
-                bot.send_message(message.chat.id, f"Лот для региона {lot_fields['fields[region]']} **обновлен**: Игра: {funpay_game_name}, Лот: {lot_name}", parse_mode='Markdown')
             else:
-                logger.info(f"[LOTS COPY] Не изменял лот {parent_id}.")
+                logger.info(f"[LOTS COPY] Не изменял лот {parent_id} для региона {lot_fields['fields[region]']}.")
         time.sleep(10)
 
 def schedule_task(cardinal, bot, message):
