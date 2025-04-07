@@ -591,7 +591,8 @@ def init_commands(cardinal: Cardinal):
                 else:
                     game_title = " ".join(game_name.split(" ")[1:]) if game_name.startswith(("Buy ", "Pre-Purchase ", "Купить ", "Предзаказ ")) else game_name
                     summary = generate_summary_text(region, game_title)
-                    summary_en = generate_summary_text(translate_text(region, "en"), game_title)
+                    text_en = translate_text(region, "en")
+                    summary_en = generate_summary_text(text_en, game_title)
                 description = generate_description_text(region, game_title)
                 payment_region = "USD"
                 if region in ["Украина"]:

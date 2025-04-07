@@ -9,6 +9,7 @@ import json
 import base64
 from dotenv import load_dotenv
 import re
+from googletrans import Translator
 
 load_dotenv()
 
@@ -160,36 +161,12 @@ def get_account_game_link(game_title):
     return id_after_lots
 
 def translate_text(text, dest_language):
-    url = "https://translate.googleapis.com/translate_a/single"
-    params = {
-        "client": "gtx",
-        "sl": "auto",
-        "tl": dest_language,
-        "dt": "t",
-        "q": text
-    }
-    
     try:
-        response = requests.get(url, params=params, timeout=10)
-        if response.status_code == 200:
-            result = response.json()
-            translated_text = ''.join([item[0] for item in result[0] if item[0]])
-            return translated_text
-        else:
-            print(f"Translation API returned status code: {response.status_code}")
-            print(f"Response content: {response.text}")
-            return text
-    except requests.exceptions.Timeout:
-        print("Translation request timed out")
-        return text
-    except requests.exceptions.ConnectionError:
-        print("Failed to connect to translation service")
-        return text
-    except requests.exceptions.RequestException as e:
-        print(f"Error during translation: {str(e)}")
-        return text
+        translator = Translator()
+        result = translator.translate(text, dest=dest_language)
+        return result.text
     except Exception as e:
-        print(f"Unexpected error during translation: {str(e)}")
+        print(f"Translation error: {str(e)}")
         return text
 
 def parse_steam_search(query, steamLoginSecure = None):
