@@ -593,23 +593,25 @@ def init_commands(cardinal: Cardinal):
                     summary = generate_summary_text(region, game_title)
                     summary_en = generate_summary_text(translate_text(region, "en"), game_title)
                 description = generate_description_text(region, game_title)
-                payment_region = "США"
+                payment_region = "USD"
                 if region in ["Украина"]:
                     payment_region = "Украниа"
                 elif region == "Казахстан":
                     if kz_uah:
-                        payment_region = "Украниа"
+                        payment_region = "UAH"
                     else:
-                        payment_region = "США"
+                        payment_region = "USD"
                 elif region == "Россия":
                     if ru_uah:
-                        payment_region = "Украниа"
+                        payment_region = "UAH"
                     else:
-                        payment_region = "США"
+                        payment_region = "USD"
                 payment_msg = (
-    "Регион отправки – " + payment_region + " (информация для продавца)\n"
+    "Валюта отправки – " + payment_region + " (информация для продавца)\n"
     "Отправьте ссылку на быстрое приглашение в друзья."
-)
+)   
+                descr_en = translate_text(description, "en")
+                payment_en = translate_text(payment_msg, "en")
                 lot_fields = {
                     "active": "on",
                     "deactivate_after_sale": "",
@@ -629,11 +631,11 @@ def init_commands(cardinal: Cardinal):
                     "fields[platform]": suitable_platform_option["value"],
                     "fields[method]": "Подарком",
                     "fields[desc][ru]": description,
-                    "fields[desc][en]": translate_text(description, "en"),
+                    "fields[desc][en]": descr_en,
                     "fields[region]": region,
                     "fields[region2]": region,
                     "fields[payment_msg][ru]": payment_msg,
-                    "fields[payment_msg][en]": translate_text(payment_msg, "en"),
+                    "fields[payment_msg][en]": payment_en,
                     "secrets": "",
                     "fields[type]": type_of_lot["value"] if type_of_lot else '',
                     "fields[type2]": type_of_lot["value"] if type_of_lot else '',
