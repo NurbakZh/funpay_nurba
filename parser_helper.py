@@ -170,13 +170,26 @@ def translate_text(text, dest_language):
     }
     
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=10)
         if response.status_code == 200:
             result = response.json()
             translated_text = ''.join([item[0] for item in result[0] if item[0]])
             return translated_text
+        else:
+            print(f"Translation API returned status code: {response.status_code}")
+            print(f"Response content: {response.text}")
+            return text
+    except requests.exceptions.Timeout:
+        print("Translation request timed out")
         return text
-    except:
+    except requests.exceptions.ConnectionError:
+        print("Failed to connect to translation service")
+        return text
+    except requests.exceptions.RequestException as e:
+        print(f"Error during translation: {str(e)}")
+        return text
+    except Exception as e:
+        print(f"Unexpected error during translation: {str(e)}")
         return text
 
 def parse_steam_search(query, steamLoginSecure = None):
