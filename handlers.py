@@ -596,6 +596,12 @@ def setup_event_attributes_handler(c: Cardinal, e: NewOrderEvent, *args):
     if "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
         config_section_name = "Steam_arenda"
         config_section_obj = {"Steam_arenda": "Steam_arenda"}
+    elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
+        config_section_name = "PS_arenda"
+        config_section_obj = {"PS_arenda": "PS_arenda"}
+    elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
+        config_section_name = "Xbox_arenda"
+        config_section_obj = {"Xbox_arenda": "Xbox_arenda"}
     else:
         config_section_name = None
         config_section_obj = None
@@ -611,10 +617,14 @@ def setup_event_attributes_handler(c: Cardinal, e: NewOrderEvent, *args):
     for i in attributes:
         setattr(e, i, attributes[i])
 
-    if config_section_obj is None and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
+    if config_section_obj is None and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and "❤️🖤【PS 5】🖤❤️【Аренда на " not in e.order.description and "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " not in e.order.description:
         logger.info("Лот не найден в конфиге авто-выдачи!")  # todo
     elif "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
-        logger.info("Лот на аренду найден в конфиге авто-выдачи!")  # todo
+        logger.info("Лот на аренду Steam найден в конфиге авто-выдачи!")  # todo
+    elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
+        logger.info("Лот на аренду PlayStation найден в конфиге авто-выдачи!")  # todo
+    elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
+        logger.info("Лот на аренду Xbox найден в конфиге авто-выдачи!")  # todo
     else:
         logger.info("Лот найден в конфиге авто-выдачи!")  # todo
 
@@ -783,6 +793,124 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
         else:
             logger.info(f"Account details delivered for order {e.order.id}")
             update_lot("Steam_arenda", game, c)
+            # Start expiration timer thread
+            Thread(target=check_rental_expiration,
+                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
+                   daemon=True).start()
+    elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
+        description = e.order.description
+        game_name = description.split("【")[1].split("】")[0]
+        duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
+
+        from plugins.psAccount import load_games, save_games, update_lot
+        games = load_games()
+        game = next((g for g in games if g.name == game_name), None)
+
+        if not game:
+            logger.error(f"Game {game_name} not found in database for order {e.order.id}")
+            return
+
+        available_account = None
+        for acc in game.accounts:
+            if not acc.is_rented:
+                available_account = acc
+                break
+        
+        if not available_account:
+            logger.error(f"No available accounts for game {game_name} for order {e.order.id}")
+            return
+
+        # Update the account in game.accounts list
+        for acc in game.accounts:
+            if acc.login == available_account.login:
+                acc.is_rented = True
+                acc.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
+                break
+
+        save_games(games)
+
+        delivery_text = f"""💫 Данные для входа в аккаунт:
+
+📧 Логин PlayStation: {available_account.login}
+🔑 Пароль PlayStation: {available_account.password}
+
+⏰ Срок аренды: {duration}
+⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
+
+!time_left {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
+
+{f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
+
+❗️ Строго соблюдайте правила, прописанные в правилах аренды"""
+
+        result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
+
+        if not result:
+            logger.error(f"Failed to send account details for order {e.order.id}")
+            available_account.is_rented = False 
+            save_games(games)
+        else:
+            logger.info(f"Account details delivered for order {e.order.id}")
+            update_lot("PS_arenda", game, c)
+            # Start expiration timer thread
+            Thread(target=check_rental_expiration,
+                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
+                   daemon=True).start()
+    elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
+        description = e.order.description
+        game_name = description.split("【")[1].split("】")[0]
+        duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
+
+        from plugins.xboxAccount import load_games, save_games, update_lot
+        games = load_games()
+        game = next((g for g in games if g.name == game_name), None)
+
+        if not game:
+            logger.error(f"Game {game_name} not found in database for order {e.order.id}")
+            return
+
+        available_account = None
+        for acc in game.accounts:
+            if not acc.is_rented:
+                available_account = acc
+                break
+        
+        if not available_account:
+            logger.error(f"No available accounts for game {game_name} for order {e.order.id}")
+            return
+
+        # Update the account in game.accounts list
+        for acc in game.accounts:
+            if acc.login == available_account.login:
+                acc.is_rented = True
+                acc.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
+                break
+
+        save_games(games)
+
+        delivery_text = f"""💫 Данные для входа в аккаунт:
+
+📧 Логин Xbox: {available_account.login}
+🔑 Пароль Xbox: {available_account.password}
+
+⏰ Срок аренды: {duration}
+⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
+
+!time_left {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
+
+{f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
+
+❗️ Строго соблюдайте правила, прописанные в правилах аренды"""
+
+        result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
+
+        if not result:
+            logger.error(f"Failed to send account details for order {e.order.id}")
+            available_account.is_rented = False 
+            save_games(games)
+        else:
+            logger.info(f"Account details delivered for order {e.order.id}")
+            update_lot("Xbox_arenda", game, c)
             # Start expiration timer thread
             Thread(target=check_rental_expiration,
                    args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),

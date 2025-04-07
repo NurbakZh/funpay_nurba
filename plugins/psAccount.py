@@ -21,14 +21,14 @@ from plugins.parser import generate_random_id, translate_text
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-NAME = "Steam Accounts АРЕНДА Plugin"
+NAME = "PlayStation Accounts АРЕНДА Plugin"
 VERSION = "0.0.1"
-DESCRIPTION = "Данный плагин позволяет управлять системой аренды аккаунтов на Steam"
+DESCRIPTION = "Данный плагин позволяет управлять системой аренды аккаунтов на PlayStation"
 CREDITS = "@nurba_zh"
 SETTINGS_PAGE = False
-UUID = "f5b3b3b4-0b3b-4b3b-8b3b-0b3b3b3b3b5b"
+UUID = "f5b3b3b4-0b3b-4b3b-8b3b-0b3b3b3b3b9b"
 
-logger = getLogger("FPC.steam_accounts_plugin")
+logger = getLogger("FPC.ps_accounts_plugin")
 RUNNING = False
 
 class Account:
@@ -70,7 +70,7 @@ class Game:
     def __init__(self, name: str, lot_name: str, prices: Dict[str, Dict[str, str]], accounts: List[Account] = None, edition_name: str = ""):
         self.name = name
         self.lot_name = lot_name
-        self.prices = prices  # Now expects Dict[str, Dict[str, str]]
+        self.prices = prices
         self.accounts = accounts or []
         self.edition_name = edition_name
 
@@ -97,47 +97,19 @@ class Game:
 def save_games(games: List[Game]):
     storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
     os.makedirs(storage_dir, exist_ok=True)
-    file_path = os.path.join(storage_dir, 'accounts.json')
+    file_path = os.path.join(storage_dir, 'ps_accounts.json')
     
     data = [game.to_dict() for game in games]
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 def edit_game(lot_name: str, updated_data: dict):
-    """
-    Edit a game's data in the storage.
-    
-    The updated_data dict can contain any of these fields:
-    - name: str - The display name of the game
-    - lot_name: str - The name used in lots/listings
-    - edition_name: str - The edition name of the game
-    - prices: Dict[str, Dict[str, Union[float, str]]] - Price data in format:
-        {
-            "duration": {
-                "price": float,  # The price amount
-                "url": str      # The lot URL
-            }
-        }
-        Example:
-        {
-            "1h": {
-                "price": 1000.0,
-                "url": "https://funpay.com/lots/123"
-            }
-        }
-    
-    :param lot_name: The lot_name of the game to edit
-    :param updated_data: Dictionary containing the fields to update
-    """
     games = load_games()
     for game in games:
         if game.lot_name == lot_name:
-            # Update game attributes from the provided data
             for key, value in updated_data.items():
                 if hasattr(game, key):
-                    # For prices, validate the structure
                     if key == "prices":
-                        # Ensure each duration has price and url
                         for duration, price_data in value.items():
                             if not isinstance(price_data, dict):
                                 continue
@@ -151,7 +123,7 @@ def edit_game(lot_name: str, updated_data: dict):
 
 def load_games() -> List[Game]:
     storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
-    file_path = os.path.join(storage_dir, 'accounts.json')
+    file_path = os.path.join(storage_dir, 'ps_accounts.json')
     
     if not os.path.exists(file_path):
         return []
@@ -194,90 +166,39 @@ def format_game_info(game: Game) -> str:
     
     return info_msg
 
-def generate_summary_text(game_name: str, duration: str, ru: bool, type: string) -> str:
-    if ru and type == 'PC':
-        return f"🖤❤️【{game_name}】❤️🖤【STEAM】🖤❤️【Аренда на {duration} (онлайн)】❤️🖤【Авто-выдача】🖤❤️"
-    elif not ru and type == 'PC':
-        return f"🖤❤️【{game_name}】❤️🖤【STEAM】🖤❤️【Rent for {duration} (online)】❤️🖤【Auto-delivery】🖤❤️"
-    if ru and type == 'PS':
+def generate_summary_text(game_name: str, duration: str, ru: bool) -> str:
+    if ru:
         return f"🖤❤️【{game_name}】❤️🖤【PS 5】🖤❤️【Аренда на {duration} (онлайн)】❤️🖤【П2】🖤【Авто-выдача】🖤❤️"
-    elif not ru and type == 'PS':
-        return f"🖤❤️【{game_name}】❤️🖤【PS 5】🖤❤️【Rent for {duration} (online)】❤️🖤【P2】🖤【Auto-delivery】🖤❤️"
-    if ru and type == 'XBOX':
-        return f"🖤❤️【{game_name}】❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на {duration} (онлайн)】❤️🖤【Авто-выдача】🖤❤️"
-    elif not ru and type == 'XBOX':
-        return f"🖤❤️【{game_name}】❤️🖤【Xbox SERIES X/S】🖤❤️【Rent for {duration} (online)】❤️🖤【Auto-delivery】🖤❤️"
-
-def generate_description_text(game_name: str, type: str) -> str:
-    if type == 'PC':
-            return f"""❗️Стоит АВТО-ВЫДАЧА❗️
-        ❗️Если объявление активно, то товар АКТУАЛЕН❗️
-        ❗️После оплаты бот в течение 30 секунд автоматически вышлет все данные для входа в аккаунт с игрой на указанный срок. Не нужно спрашивать, на месте ли продавец или свободен ли аккаунт❗️
-        ❗️Если хотите узнать определённое количество свободных аккаунтов по конкретной игре, напишите в чат продавцу команду !arenda {game_name}❗️
-
-        🔽❗️❓Как проходит аренда?❓❗️🔽
-        1️⃣ Произвести оплату лота с нужным вам временем.
-        2️⃣ Получить данные от аккаунта.
-        3️⃣ По завершении аренды подтвердить заказ и оставить отзыв (по желанию).
-
-        🔥❗️Вы получаете личный онлайн-аккаунт с доступом ко всем сетевым функциям, а не общий или оффлайн-аккаунт! На весь срок аренды вы будете единственным владельцем❗️🔥
-        🔥❗️После оплаты лота сразу начинается отсчёт❗️🔥
-        🔥❗️Если игра имеет сторонние привязки (Ubisoft, EA и т.д.), вы получите и данные от них. После покупки бот вышлет команду с кодом для входа вместе со всеми данными❗️🔥
-
-        ❗️Что запрещено делать на аккаунте?❗️
-        ⭕️ Менять данные (кроме имени и аватарки). Нарушение этого правила приведёт к блокировке аккаунта без возврата денег.
-        ⭕️ Использовать читы или стороннее ПО – мгновенное прекращение услуги.
-        ⭕️ Передавать данные третьим лицам – строго запрещено.
-
-        ✅ Соблюдайте правила и играйте без лишних проблем! 🎮🔥"""
-    elif type == 'XBOX':
-        return f"""❗️Стоит АВТО-ВЫДАЧА❗️
-        ❗️Если объявление активно, то товар АКТУАЛЕН❗️
-        ❗️После оплаты бот в течение 30 секунд автоматически вышлет все данные для входа в аккаунт с игрой на указанный срок. Не нужно спрашивать, на месте ли продавец или свободен ли аккаунт❗️
-        ❗️Если хотите узнать определённое количество свободных аккаунтов по конкретной игре, напишите в чат продавцу команду !arenda_xbox(название игры)❗️
-
-        🔽❗️❓Как проходит аренда?❓❗️🔽
-        1️⃣ Произвести оплату лота с нужным вам временем.
-        2️⃣ Получить данные от аккаунта Xbox
-        3️⃣ По завершении аренды подтвердить заказ и оставить отзыв (по желанию).
-
-        ✔️ После оплаты вы получаете данные от нашего личного аккаунта Xbox для прохождение сюжетнго режима.
-
-        ❗️ ЗАПРЕЩЕНО:
-        ❌ Передавать аккаунт третьим лицам
-        ❌ Использовать более чем на одной консоли
-        ❌ Нарушать инструкцию по использованию
-        ❌ Делать профиль домашним
-        ❌ Менять информацию на аккаунте, регион, сведения защиты и т.п.
-
-        ✅ Соблюдайте правила и играйте без лишних проблем! 🎮🔥"""
     else:
-        return f"""❗️Стоит АВТО-ВЫДАЧА❗️
-        ❗️Если объявление активно, то товар АКТУАЛЕН❗️
-        ❗️После оплаты бот в течение 30 секунд автоматически вышлет все данные для входа в аккаунт с игрой на указанный срок. Не нужно спрашивать, на месте ли продавец или свободен ли аккаунт❗️
-        ❗️Если хотите узнать определённое количество свободных аккаунтов по конкретной игре, напишите в чат продавцу команду !arenda_ps (название игры)❗️
+        return f"🖤❤️【{game_name}】❤️🖤【PS 5】🖤❤️【Rent for {duration} (online)】❤️🖤【P2】🖤【Auto-delivery】🖤❤️"
 
-        🔽❗️❓Как проходит аренда?❓❗️🔽
-        1️⃣ Произвести оплату лота с нужным вам временем.
-        2️⃣ Получить данные от аккаунта playstation.
-        3️⃣ По завершении аренды подтвердить заказ и оставить отзыв (по желанию).
+def generate_description_text(game_name: str) -> str:
+    return f"""❗️Стоит АВТО-ВЫДАЧА❗️
+❗️Если объявление активно, то товар АКТУАЛЕН❗️
+❗️После оплаты бот в течение 30 секунд автоматически вышлет все данные для входа в аккаунт с игрой на указанный срок. Не нужно спрашивать, на месте ли продавец или свободен ли аккаунт❗️
+❗️Если хотите узнать определённое количество свободных аккаунтов по конкретной игре, напишите в чат продавцу команду !arenda_ps (название игры)❗️
 
-        ✔️ П2 - аренда игры, играете с арендованного аккаунта, нужно постоянное подключение к интернету!
-        (аккаунт без активации) - Позволяет играть только с нашего аккаунта. Активировать П2 аккаунт на свою консоль запрещено. Сразу после входа на наш аккаунт Вы обязаны провести деактивацию.
-        ✔️ Также после оплаты вы получаете инструкцию по правильному использованию моего аккаунта для активации по способу П2 на PS5.
-        
-        ❌ Запрещено:
-        - Входить на аккаунт с браузера компьютера – доступ только с консоли.
-        - Изменять любые данные учетной записи, включая логин и пароль.
-        - Менять идентификатор входа в сеть. Добавлять личные данные (номер телефона)
-        - Отключать, подключать или изменять двухэтапную аутентификацию.
-        пароль, настройки двухфакторной аутентификации).
-        💢 За нарушение любого пункта правил, вы тут же лишаетесь доступа к аккаунту (до выяснения обстоятельств).
-        💢 Если была совершена попытка смены данных от аккаунта (почта, пароль, настройки двухфакторной аутентификации) вы сразу лишаетесь аккаунта.
-        🆘 - Перед покупкой внимательно ознакомьтесь с игрой и посмотрите обзоры на YouTube. Возвраты по причине: Не понравилась, думал что будет другое, перепутал платформу игры, хотел купить другую игру, купил младший брат или сын, и т.д. НЕ ДЕЛАЕМ.
-        🆘 PS Plus ОТСУТСТВУЕТ
+🔽❗️❓Как проходит аренда?❓❗️🔽
+1️⃣ Произвести оплату лота с нужным вам временем.
+2️⃣ Получить данные от аккаунта playstation.
+3️⃣ По завершении аренды подтвердить заказ и оставить отзыв (по желанию).
 
-        ✅ Соблюдайте правила и играйте без лишних проблем! 🎮🔥"""
+✔️ П2 - аренда игры, играете с арендованного аккаунта, нужно постоянное подключение к интернету!
+(аккаунт без активации) - Позволяет играть только с нашего аккаунта. Активировать П2 аккаунт на свою консоль запрещено. Сразу после входа на наш аккаунт Вы обязаны провести деактивацию.
+✔️ Также после оплаты вы получаете инструкцию по правильному использованию моего аккаунта для активации по способу П2 на PS5.
+
+❌ Запрещено:
+- Входить на аккаунт с браузера компьютера – доступ только с консоли.
+- Изменять любые данные учетной записи, включая логин и пароль.
+- Менять идентификатор входа в сеть. Добавлять личные данные (номер телефона)
+- Отключать, подключать или изменять двухэтапную аутентификацию.
+пароль, настройки двухфакторной аутентификации).
+💢 За нарушение любого пункта правил, вы тут же лишаетесь доступа к аккаунту (до выяснения обстоятельств).
+💢 Если была совершена попытка смены данных от аккаунта (почта, пароль, настройки двухфакторной аутентификации) вы сразу лишаетесь аккаунта.
+🆘 - Перед покупкой внимательно ознакомьтесь с игрой и посмотрите обзоры на YouTube. Возвраты по причине: Не понравилась, думал что будет другое, перепутал платформу игры, хотел купить другую игру, купил младший брат или сын, и т.д. НЕ ДЕЛАЕМ.
+🆘 PS Plus ОТСУТСТВУЕТ
+
+✅ Соблюдайте правила и играйте без лишних проблем! 🎮🔥"""
 
 def update_lot(message: Message, game: Game, cardinal: Cardinal):
     try:
@@ -301,14 +222,13 @@ def update_lot(message: Message, game: Game, cardinal: Cardinal):
             lot.set_fields(fields)
             cardinal.account.save_lot(lot)
             logger.info(f"[LOTS COPY] Изменил лот {node_id}.")
-            if (message == "Steam_arenda"):
+            if (message == "PS_arenda"):
                 cardinal.telegram.bot.send_message("1284467388", f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
             else:   
-                printe('here')
                 cardinal.telegram.bot.send_message(message.chat.id, f"✅ Обновлен лот для {game.name} аренды на {readable_duration}")
     except Exception as e:
-        if (message == "Steam_arenda"):
-            cardinal.telegram.bot.send_message("1284467388", f"❌ Ошибsave_gamesка при обновлении лота: {e}")
+        if (message == "PS_arenda"):
+            cardinal.telegram.bot.send_message("1284467388", f"❌ Ошибка при обновлении лота: {e}")
         else:   
             cardinal.telegram.bot.send_message(message.chat.id, f"❌ Ошибка при обновлении лота: {e}")
 
@@ -332,18 +252,18 @@ def init_commands(cardinal: Cardinal):
             if game_options is not None:
                 suitable_game_option = next((option for option in game_options if game.name in option["text"]), None)
                 if suitable_game_option is None:
-                    suitable_game_option = next((option for option in game_options if option["text"] in ["Steam", "PC", "PC (Steam)", "(PC) Steam"]), None)
+                    suitable_game_option = next((option for option in game_options if option["text"] in ["PlayStation", "PS", "PS5", "PlayStation 5"]), None)
 
             if platform_options is not None:
-                suitable_platform_option = next((option for option in platform_options if option["text"] in ["Steam", "PC", "PC (Steam)", "(PC) Steam"]), None)
+                suitable_platform_option = next((option for option in platform_options if option["text"] in ["PlayStation", "PS", "PS5", "PlayStation 5"]), None)
                 if not suitable_platform_option:
-                    raise Exception(f"No suitable platform option found for 'Steam' or 'PC'")
+                    raise Exception(f"No suitable platform option found for 'PlayStation' or 'PS5'")
 
             for duration, price_data in game.prices.items():
                 readable_duration = duration_names.get(duration, duration)
-                summary = generate_summary_text(game.name, readable_duration, ru=True, type="PC")
-                summary_en = generate_summary_text(game.name, translate_text(readable_duration, "en"), ru=False, type="PC")
-                description = generate_description_text(game.name, type="PC")
+                summary = generate_summary_text(game.name, readable_duration, ru=True)
+                summary_en = generate_summary_text(game.name, translate_text(readable_duration, "en"), ru=False)
+                description = generate_description_text(game.name)
 
                 lot_fields = {
                     "active": "on",
@@ -382,22 +302,22 @@ def init_commands(cardinal: Cardinal):
             bot.send_message(message.chat.id, f"❌ Ошибка при создании лота: {e}")
 
     def handle_add_account(message: Message):
-        msg = bot.send_message(message.chat.id, "📧 Введите логин аккаунта Steam:")
+        msg = bot.send_message(message.chat.id, "📧 Введите логин аккаунта PlayStation:")
         bot.register_next_step_handler(msg, process_login_step)
 
     def process_login_step(message: Message):
         login = message.text
-        msg = bot.send_message(message.chat.id, "🔑 Введите пароль аккаунта Steam:")
+        msg = bot.send_message(message.chat.id, "🔑 Введите пароль аккаунта PlayStation:")
         bot.register_next_step_handler(msg, process_password_step, login)
 
     def process_password_step(message: Message, login: str):
         password = message.text
-        msg = bot.send_message(message.chat.id, "📧 Введите логин от почты для Social Club (напишите *none*, если не нужно):", parse_mode="Markdown")
+        msg = bot.send_message(message.chat.id, "📧 Введите логин от почты (напишите *none*, если не нужно):", parse_mode="Markdown")
         bot.register_next_step_handler(msg, process_email_login_step, login, password)
 
     def process_email_login_step(message: Message, login: str, password: str):
         email_login = message.text
-        msg = bot.send_message(message.chat.id, "🔐 Введите пароль от почты для Social Club (напишите *none*, если не нужно):", parse_mode="Markdown")
+        msg = bot.send_message(message.chat.id, "🔐 Введите пароль от почты (напишите *none*, если не нужно):", parse_mode="Markdown")
         bot.register_next_step_handler(msg, process_email_password_step, login, password, email_login)
 
     def process_email_password_step(message: Message, login: str, password: str, email_login: str):
@@ -487,7 +407,6 @@ def init_commands(cardinal: Cardinal):
         account = Account(login, password, email_login, email_password, additional_info=additional_info)
         
         try:
-            # Find existing game or create new one
             game = next((g for g in games if g.lot_name == lot_name), None)
             if game:
                 game.accounts.append(account)
@@ -541,30 +460,28 @@ def init_commands(cardinal: Cardinal):
     def handle_message(call):
         game_name = call.data.split(":")[1].strip()
         empty_markup = K([])
-        # Delete the keyboard
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
         
-        # Get game info from database
         games = load_games()
         game = next((g for g in games if g.name == game_name), None)
         
         if game:
-            # Format game info message
             info_msg = format_game_info(game)
             bot.send_message(call.message.chat.id, info_msg, parse_mode="Markdown")
         
-        msg = bot.send_message(call.message.chat.id, "Введите логин аккаунта Steam:")
+        msg = bot.send_message(call.message.chat.id, "Введите логин аккаунта PlayStation:")
         bot.register_next_step_handler(msg, lambda m: process_login_for_existing_game_step(m, game_name))
 
     def process_login_for_existing_game_step(message: Message, game_name: str):
         login = message.text
-        msg = bot.send_message(message.chat.id, "Введите пароль аккаунта Steam:")
+        msg = bot.send_message(message.chat.id, "Введите пароль аккаунта PlayStation:")
         bot.register_next_step_handler(msg, lambda m: process_password_for_existing_game_step(m, game_name, login))
 
     def process_password_for_existing_game_step(message: Message, game_name: str, login: str):
         password = message.text
         msg = bot.send_message(message.chat.id, "Введите логин от почты:")
         bot.register_next_step_handler(msg, lambda m: process_email_login_for_existing_game_step(m, game_name, login, password))
+
     def process_email_login_for_existing_game_step(message: Message, game_name: str, login: str, password: str):
         email_login = message.text
         msg = bot.send_message(message.chat.id, "Введите пароль от почты:")
@@ -591,7 +508,6 @@ def init_commands(cardinal: Cardinal):
     def handle_game_callbacks(call):
         action, game_name = call.data.split(":")
         
-        # Delete the keyboard
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
         
         games = load_games()
@@ -635,12 +551,6 @@ def init_commands(cardinal: Cardinal):
             bot.send_message(call.message.chat.id, "Игра не найдена")
 
     def create_new_lot(acc: Account, lot: FunPayAPI.types.LotFields):
-        """
-        Создает лот на нашем аккаунте.
-
-        :param acc: экземпляр аккаунта, на котором нужно создать лот.
-        :param lot: экземпляр лота.
-        """
         lot_id = lot.lot_id
         fields = lot.fields
         fields["offer_id"] = "0"
@@ -673,7 +583,6 @@ def init_commands(cardinal: Cardinal):
         login = message.text
         games = load_games()
         
-        # Find account across all games
         account_found = False
         for game in games:
             for account in game.accounts:
@@ -692,7 +601,6 @@ def init_commands(cardinal: Cardinal):
         new_password = message.text
         games = load_games()
         
-        # Update password for the account in all games where it appears
         password_changed = False
         for game in games:
             for account in game.accounts:
