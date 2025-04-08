@@ -23,7 +23,6 @@ import logging
 import time
 import re
 from parser_helper import check_for_last, check_for_last_with_account
-from plugins.steamAccounts import load_games, Account, Game, save_games, duration_names, update_lot
 
 LAST_STACK_ID = ""
 MSG_LOG_LAST_STACK_ID = ""
@@ -102,6 +101,14 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
         if text and text.startswith("!time_left"):
             try:
                 account_login = text.split("!time_left ")[1].strip()
+                # Import the appropriate module based on the platform
+                if "❤️🖤【Steam】🖤❤️" in event.message.text:
+                    from plugins.steamAccounts import load_games
+                elif "❤️🖤【PS 5】🖤❤️" in event.message.text:
+                    from plugins.psAccount import load_games
+                elif "❤️🖤【Xbox SERIES X/S】🖤❤️" in event.message.text:
+                    from plugins.xboxAccount import load_games
+                    
                 games = load_games()
                 
                 # Find the rented account
@@ -147,6 +154,78 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                 Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
                 break
 
+        elif text and text.startswith("!arenda_xbox"):
+            try:
+                # Split the command and check if game name is provided
+                parts = text.split("!arenda_xbox ", 1)
+                if len(parts) < 2 or not parts[1].strip():
+                    text = "❌ Не указано название игры. Используйте: !arenda_xbox <название игры>"
+                    Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                    break
+                    
+                game_name = parts[1].strip()
+                # Import the appropriate module based on the platform
+                if "❤️🖤【Xbox SERIES X/S】🖤❤️" in game_name:
+                    from plugins.xboxAccount import load_games
+                    
+                game = next((g for g in load_games() if g.name.lower() == game_name.lower() and g.platform == "Xbox"), None)
+                
+                if not game:
+                    text = f"❌ Аккаунт по игре {game_name} не продаётся у продавца на платформе Xbox"
+                else:
+                    available_accounts = [acc for acc in game.accounts if not acc.is_rented]
+                    if not available_accounts:
+                        text = f"❌ Нет доступных аккаунтов для игры {game_name} на платформе Xbox"
+                    else:
+                        text = f"""✅ Доступные аккаунты для {game_name} на платформе Xbox:
+
+Количество: {len(available_accounts)} шт.
+"""
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.info(f"Получил запрос на список аккаунтов {game_name} на платформе Xbox от пользователя {chat_name} (CID: {chat_id})")
+                break
+            except Exception as e:
+                logger.error(f"Ошибка при обработке команды !arenda_xbox: {str(e)}")
+                text = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                break
+
+        elif text and text.startswith("!arenda_ps"):
+            try:
+                # Split the command and check if game name is provided
+                parts = text.split("!arenda_ps ", 1)
+                if len(parts) < 2 or not parts[1].strip():
+                    text = "❌ Не указано название игры. Используйте: !arenda_ps <название игры>"
+                    Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                    break
+                    
+                game_name = parts[1].strip()
+                # Import the appropriate module based on the platform
+                if "❤️🖤【PS 5】🖤❤️" in game_name:
+                    from plugins.psAccount import load_games
+                    
+                game = next((g for g in load_games() if g.name.lower() == game_name.lower() and g.platform == "PlayStation"), None)
+                
+                if not game:
+                    text = f"❌ Аккаунт по игре {game_name} не продаётся у продавца на платформе PlayStation"
+                else:
+                    available_accounts = [acc for acc in game.accounts if not acc.is_rented]
+                    if not available_accounts:
+                        text = f"❌ Нет доступных аккаунтов для игры {game_name} на платформе PlayStation"
+                    else:
+                        text = f"""✅ Доступные аккаунты для {game_name} на платформе PlayStation:
+
+Количество: {len(available_accounts)} шт.
+"""
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.info(f"Получил запрос на список аккаунтов {game_name} на платформе PlayStation от пользователя {chat_name} (CID: {chat_id})")
+                break
+            except Exception as e:
+                logger.error(f"Ошибка при обработке команды !arenda_ps: {str(e)}")
+                text = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                break
+
         elif text and text.startswith("!arenda"):
             try:
                 # Split the command and check if game name is provided
@@ -157,8 +236,11 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                     break
                     
                 game_name = parts[1].strip()
-                games = load_games()
-                game = next((g for g in games if g.name.lower() == game_name.lower()), None)
+                # Import the appropriate module based on the platform
+                if "❤️🖤【Steam】🖤❤️" in game_name:
+                    from plugins.steamAccounts import load_games
+                    
+                game = next((g for g in load_games() if g.name.lower() == game_name.lower()), None)
                 
                 if not game:
                     text = f"❌ Аккаунт по игре {game_name} не продаётся у продавца"
@@ -647,10 +729,9 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
     if not (config_obj := getattr(e, "config_section_obj")):
         delivery_info = _("ntfc_new_order_not_in_cfg")
     else:
-        print("8", config_obj)
-        if not c.autodelivery_enabled and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
+        if not c.autodelivery_enabled and "🖤❤️【Аренда на " not in e.order.description:
             delivery_info = _("ntfc_new_order_ad_disabled")
-        elif "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and isinstance(config_obj, dict) and any(key in e.order.description.lower() for key in config_obj.keys()):
+        elif "🖤❤️【Аренда на " not in e.order.description and isinstance(config_obj, dict) and any(key in e.order.description.lower() for key in config_obj.keys()):
             delivery_info = _("ntfc_new_order_ad_disabled_for_lot")
         elif c.bl_delivery_enabled and e.order.buyer_username in c.blacklist:
             delivery_info = _("ntfc_new_order_user_blocked")
@@ -685,6 +766,20 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
     seconds = duration_map.get(duration)
     if not seconds:
         logger.error(f"Invalid duration format: {duration}")
+        return
+
+    # Import the appropriate module based on the platform
+    if "❤️🖤【Steam】🖤❤️" in game_name:
+        from plugins.steamAccounts import load_games, save_games, update_lot
+        lot_type = "Steam_arenda"
+    elif "❤️🖤【PS 5】🖤❤️" in game_name:
+        from plugins.psAccount import load_games, save_games, update_lot
+        lot_type = "PS_arenda"
+    elif "❤️🖤【Xbox SERIES X/S】🖤❤️" in game_name:
+        from plugins.xboxAccount import load_games, save_games, update_lot
+        lot_type = "Xbox_arenda"
+    else:
+        logger.error("Unknown platform in game name")
         return
 
     expiration_time = datetime.now() + timedelta(seconds=seconds)
@@ -739,17 +834,18 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
     update_lot("Steam_arenda", game, c)
             
     print("Аренда завершена")
-    
+
 
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     chat_id = c.account.get_chat_by_name(e.order.buyer_username).id
     cfg_obj = getattr(e, "config_section_obj")
 
-    if "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
+    if "❤️🖤【Steam】🖤❤️【Аренда на " in e.order.description:
         description = e.order.description
         game_name = description.split("【")[1].split("】")[0]
         duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
 
+        from plugins.steamAccounts import load_games, save_games, update_lot
         games = load_games()
         game = next((g for g in games if g.name == game_name), None)
 
@@ -805,6 +901,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             Thread(target=check_rental_expiration,
                    args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
                    daemon=True).start()
+
     elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
         description = e.order.description
         game_name = description.split("【")[1].split("】")[0]
@@ -862,8 +959,9 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             update_lot("PS_arenda", game, c)
             # Start expiration timer thread
             Thread(target=check_rental_expiration,
-                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
+                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, None, game_name, duration),
                    daemon=True).start()
+
     elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
         description = e.order.description
         game_name = description.split("【")[1].split("】")[0]
@@ -921,16 +1019,16 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             update_lot("Xbox_arenda", game, c)
             # Start expiration timer thread
             Thread(target=check_rental_expiration,
-                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
+                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, None, game_name, duration),
                    daemon=True).start()
     else:    
+        print("other arenda", e.order.description)
         delivery_text = cardinal_tools.format_order_text(cfg_obj["response"], e.order)
 
         amount, goods_left, products = 1, -1, []
 
         try:
             if file_name := cfg_obj.get("productsFileName"):
-                print("9", cfg_obj)
                 if c.multidelivery_enabled and not cfg_obj.getboolean("disableMultiDelivery"):
                     amount = e.order.amount if e.order.amount else 1
                 products, goods_left = cardinal_tools.get_products(f"storage/products/{file_name}", amount)
@@ -973,9 +1071,11 @@ def deliver_product_handler(c: Cardinal, e: NewOrderEvent, *args) -> None:
     # The config section object contains delivery settings for the specific lot type.
     if (config_section_obj := getattr(e, "config_section_obj")) is None:
         return
-    if "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and config_section_obj.getboolean("disable"):
-        logger.info(f"Для лота \"{e.order.description}\" отключена автовыдача.")  # locale
-        return
+    if "🖤❤️【Аренда на " not in e.order.description:
+        print("не аренда")
+        if config_section_obj.getboolean("disable")
+            logger.info(f"Для лота \"{e.order.description}\" отключена автовыдача.")  # locale
+            return
 
     c.run_handlers(c.pre_delivery_handlers, (c, e))
     deliver_goods(c, e, *args)
