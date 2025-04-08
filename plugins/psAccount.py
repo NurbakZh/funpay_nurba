@@ -615,18 +615,18 @@ def init_commands(cardinal: Cardinal):
             bot.send_message(message.chat.id, "❌ Произошла ошибка при изменении пароля")
 
     cardinal.add_telegram_commands(UUID, [
-        ("add_account", "добавить новый аккаунт и игру", True),
-        ("add_account_to_game", "добавить аккаунт к существующей игре", True),
-        ("get_info_about_game", "получить информацию об игре", True),
-        ("delete_account_from_game", "удалить аккаунт из игры", True),
-        ("change_password", "изменить пароль аккаунта", True),
+        ("add_account_ps", "добавить новый аккаунт и игру", True),
+        ("add_account_to_game_ps", "добавить аккаунт к существующей игре", True),
+        ("get_info_about_game_ps", "получить информацию об игре", True),
+        ("delete_account_from_game_ps", "удалить аккаунт из игры", True),
+        ("change_password_ps", "изменить пароль аккаунта", True),
     ])
 
-    tg.msg_handler(handle_add_account, commands=["add_account"])
-    tg.msg_handler(handle_add_account_to_game, commands=["add_account_to_game"])
-    tg.msg_handler(handle_get_info_about_game, commands=["get_info_about_game"])
-    tg.msg_handler(handle_delete_account_from_game, commands=["delete_account_from_game"])
-    tg.msg_handler(handle_change_password, commands=["change_password"])
+    tg.msg_handler(handle_add_account, commands=["add_account_ps"])
+    tg.msg_handler(handle_add_account_to_game, commands=["add_account_to_game_ps"])
+    tg.msg_handler(handle_get_info_about_game, commands=["get_info_about_game_ps"])
+    tg.msg_handler(handle_delete_account_from_game, commands=["delete_account_from_game_ps"])
+    tg.msg_handler(handle_change_password, commands=["change_password_ps"])
 
 BIND_TO_PRE_INIT = [init_commands]
 BIND_TO_DELETE = None
