@@ -160,9 +160,9 @@ def format_game_info(game: Game) -> str:
 
 def generate_summary_text(game_name: str, duration: str, ru: bool) -> str:
     if ru:
-        return f"🖤❤️【{game_name}】❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на {duration} (онлайн)】❤️🖤【Авто-выдача】🖤❤️"
+        return f"🖤❤️【{game_name}】❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на {duration}】❤️🖤【Авто-выдача】🖤❤️"
     else:
-        return f"🖤❤️【{game_name}】❤️🖤【Xbox SERIES X/S】🖤❤️【Rent for {duration} (online)】❤️🖤【Auto-delivery】🖤❤️"
+        return f"🖤❤️【{game_name}】❤️🖤【Xbox SERIES X/S】🖤❤️【Rent for {duration}】❤️🖤【Auto-delivery】🖤❤️"
 
 def generate_description_text(game_name: str) -> str:
     return f"""❗️Стоит АВТО-ВЫДАЧА❗️
