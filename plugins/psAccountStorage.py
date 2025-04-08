@@ -160,6 +160,8 @@ def init_commands(cardinal: Cardinal):
                 for account in game.get('accounts'):
                     if account.get('login') == data['login']:
                         account['password'] = data['password']
+                        account['email'] = data['email']
+                        account['email_password'] = data['email_password']
                     
             with open('storage/plugins/ps_accounts.json', 'w', encoding='utf-8') as f:
                 json.dump(games_data, f, ensure_ascii=False, indent=4)
@@ -265,6 +267,8 @@ def init_commands(cardinal: Cardinal):
                 for account in game.get('accounts'):
                     if account.get('login') == data['login']:
                         account['password'] = data['password']
+                        account['email'] = data['email']
+                        account['email_password'] = data['email_password']
                     
             with open('storage/plugins/ps_accounts.json', 'w', encoding='utf-8') as f:
                 json.dump(games_data, f, ensure_ascii=False, indent=4)

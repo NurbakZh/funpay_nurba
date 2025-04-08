@@ -32,12 +32,9 @@ logger = getLogger("FPC.ps_accounts_plugin")
 RUNNING = False
 
 class Account:
-    def __init__(self, login: str, password: str, email_login: str = None, email_password: str = None, 
-                 is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
+    def __init__(self, login: str, password: str, is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
         self.login = login
         self.password = password
-        self.email_login = email_login
-        self.email_password = email_password
         self.is_rented = is_rented
         self.time_of_rent = time_of_rent
         self.additional_info = additional_info
@@ -46,25 +43,20 @@ class Account:
         return {
             "login": self.login,
             "password": self.password,
-            "emailLogin": self.email_login,
-            "emailPassword": self.email_password,
-            "isRented": self.is_rented,
-            "timeOfRent": self.time_of_rent,
-            "additionalInfo": self.additional_info
+            "is_rented": self.is_rented,
+            "time_of_rent": self.time_of_rent.isoformat() if self.time_of_rent else None,
+            "additional_info": self.additional_info
         }
 
     @staticmethod
     def from_dict(data: dict) -> 'Account':
-        account = Account(
+        return Account(
             login=data["login"],
             password=data["password"],
-            email_login=data.get("emailLogin"),
-            email_password=data.get("emailPassword"),
-            is_rented=data["isRented"],
-            time_of_rent=data["timeOfRent"],
-            additional_info=data.get("additionalInfo")
+            is_rented=data.get("is_rented", False),
+            time_of_rent=datetime.fromisoformat(data["time_of_rent"]) if data.get("time_of_rent") else None,
+            additional_info=data.get("additional_info")
         )
-        return account
 
 class Game:
     def __init__(self, name: str, lot_name: str, prices: Dict[str, Dict[str, str]], accounts: List[Account] = None, edition_name: str = ""):
@@ -312,99 +304,89 @@ def init_commands(cardinal: Cardinal):
 
     def process_password_step(message: Message, login: str):
         password = message.text
-        msg = bot.send_message(message.chat.id, "📧 Введите логин от почты (напишите *none*, если не нужно):", parse_mode="Markdown")
-        bot.register_next_step_handler(msg, process_email_login_step, login, password)
-
-    def process_email_login_step(message: Message, login: str, password: str):
-        email_login = message.text
-        msg = bot.send_message(message.chat.id, "🔐 Введите пароль от почты (напишите *none*, если не нужно):", parse_mode="Markdown")
-        bot.register_next_step_handler(msg, process_email_password_step, login, password, email_login)
-
-    def process_email_password_step(message: Message, login: str, password: str, email_login: str):
-        email_password = message.text
         msg = bot.send_message(message.chat.id, "ℹ️ Введите дополнительную информацию об аккаунте (напишите *none*, если не нужно):", parse_mode="Markdown")
-        bot.register_next_step_handler(msg, process_additional_info_step, login, password, email_login, email_password)
+        bot.register_next_step_handler(msg, process_additional_info_step, login, password)
 
-    def process_additional_info_step(message: Message, login: str, password: str, email_login: str, email_password: str):
+    def process_additional_info_step(message: Message, login: str, password: str):
         additional_info = None if message.text.lower() == "none" else message.text
         msg = bot.send_message(message.chat.id, "📝 Введите название лота в FunPay:")
-        bot.register_next_step_handler(msg, process_lot_step, login, password, email_login, email_password, additional_info)
+        bot.register_next_step_handler(msg, process_lot_step, login, password, additional_info)
 
-    def process_lot_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str):
+    def process_lot_step(message: Message, login: str, password: str, additional_info: str):
         lot_name = message.text
-        msg = bot.send_message(message.chat.id, "🎯 Введите название игры в FunPay:")
-        bot.register_next_step_handler(msg, process_game_step, login, password, email_login, email_password, additional_info, lot_name)
+        msg = bot.send_message(message.chat.id, "🎮 Введите название игры:")
+        bot.register_next_step_handler(msg, process_game_step, login, password, additional_info, lot_name)
 
-    def process_game_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str):
+    def process_game_step(message: Message, login: str, password: str, additional_info: str, lot_name: str):
         game_name = message.text
         msg = bot.send_message(message.chat.id, "📌 Введите название издания игры в FunPay:")
-        bot.register_next_step_handler(msg, process_edition_step, login, password, email_login, email_password, additional_info, lot_name, game_name)
+        bot.register_next_step_handler(msg, process_edition_step, login, password, additional_info, lot_name, game_name)
 
-    def process_edition_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str):
+    def process_edition_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str):
         edition_name = message.text
-        msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 1 час (в рублях):")
-        bot.register_next_step_handler(msg, process_price_1h_step, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name)
+        msg = bot.send_message(message.chat.id, "�� Введите цену аренды за 1 час (в рублях):")
+        bot.register_next_step_handler(msg, process_price_1h_step, login, password, additional_info, lot_name, game_name, edition_name)
 
-    def process_price_1h_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str):
+    def process_price_1h_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str):
         try:
             price_1h = str(float(message.text))
             msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 3 часа (в рублях):")
-            bot.register_next_step_handler(msg, process_price_3h_step, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name, {"1h": {"price": price_1h, "url": ""}})
+            bot.register_next_step_handler(msg, process_price_3h_step, login, password, additional_info, lot_name, game_name, edition_name, {"1h": {"price": price_1h, "url": ""}})
         except ValueError:
             bot.send_message(message.chat.id, "❌ Неверный формат, пожалуйста начните заново используя /add_account")
 
-    def process_price_3h_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_price_3h_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         try:
             price_3h = float(message.text)
             prices["3h"] = {"price": price_3h, "url": ""}
             msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 6 часов (в рублях):")
-            bot.register_next_step_handler(msg, process_price_6h_step, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name, prices)
+            bot.register_next_step_handler(msg, process_price_6h_step, login, password, additional_info, lot_name, game_name, edition_name, prices)
         except ValueError:
             bot.send_message(message.chat.id, "Неверный формат, пожалуйста начните заново используя /add_account")
 
-    def process_price_6h_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_price_6h_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         try:
             price_6h = float(message.text)
             prices["6h"] = {"price": price_6h, "url": ""}
             msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 1 день (в рублях):")
-            bot.register_next_step_handler(msg, lambda m: process_price_1d_step(m, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name, prices))
+            bot.register_next_step_handler(msg, lambda m: process_price_1d_step(m, login, password, additional_info, lot_name, game_name, edition_name, prices))
         except ValueError:
             bot.send_message(message.chat.id, "Неверный формат, пожалуйста начните заново используя /add_account")
 
-    def process_price_1d_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_price_1d_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         try:
             prices["1d"] = {"price": float(message.text), "url": ""}
             msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 3 дня (в рублях):")
-            bot.register_next_step_handler(msg, lambda m: process_price_3d_step(m, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name, prices))
+            bot.register_next_step_handler(msg, lambda m: process_price_3d_step(m, login, password, additional_info, lot_name, game_name, edition_name, prices))
         except ValueError:
             bot.send_message(message.chat.id, "Неверный формат, пожалуйста начните заново используя /add_account")
 
-    def process_price_3d_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_price_3d_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         try:
             prices["3d"] = {"price": float(message.text), "url": ""}
             msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 5 дней (в рублях):")
-            bot.register_next_step_handler(msg, lambda m: process_price_5d_step(m, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name, prices))
+            bot.register_next_step_handler(msg, lambda m: process_price_5d_step(m, login, password, additional_info, lot_name, game_name, edition_name, prices))
         except ValueError:
             bot.send_message(message.chat.id, "Неверный формат, пожалуйста начните заново используя /add_account")
 
-    def process_price_5d_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_price_5d_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         try:
             prices["5d"] = {"price": float(message.text), "url": ""}
             msg = bot.send_message(message.chat.id, "💰 Введите цену аренды за 7 дней (в рублях):")
-            bot.register_next_step_handler(msg, lambda m: process_price_7d_step(m, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name, prices))
+            bot.register_next_step_handler(msg, lambda m: process_price_7d_step(m, login, password, additional_info, lot_name, game_name, edition_name, prices))
         except ValueError:
             bot.send_message(message.chat.id, "Неверный формат, пожалуйста начните заново используя /add_account")
 
-    def process_price_7d_step(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_price_7d_step(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         try:
             prices["7d"] = {"price": float(message.text), "url": ""}
-            process_remaining_prices(message, login, password, email_login, email_password, additional_info, lot_name, game_name, edition_name, prices)
+            process_remaining_prices(message, login, password, additional_info, lot_name, game_name, edition_name, prices)
         except ValueError:
             bot.send_message(message.chat.id, "Неверный формат, пожалуйста начните заново используя /add_account")
 
-    def process_remaining_prices(message: Message, login: str, password: str, email_login: str, email_password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
+    def process_remaining_prices(message: Message, login: str, password: str, additional_info: str, lot_name: str, game_name: str, edition_name: str, prices: dict):
         games = load_games()
-        account = Account(login, password, email_login, email_password, additional_info=additional_info)
+        account = Account(login, password, additional_info=additional_info)
         
         try:
             game = next((g for g in games if g.lot_name == lot_name), None)
@@ -479,30 +461,23 @@ def init_commands(cardinal: Cardinal):
 
     def process_password_for_existing_game_step(message: Message, game_name: str, login: str):
         password = message.text
-        msg = bot.send_message(message.chat.id, "Введите логин от почты:")
-        bot.register_next_step_handler(msg, lambda m: process_email_login_for_existing_game_step(m, game_name, login, password))
+        msg = bot.send_message(message.chat.id, "ℹ️ Введите дополнительную информацию об аккаунте (напишите *none*, если не нужно):", parse_mode="Markdown")
+        bot.register_next_step_handler(msg, process_additional_info_for_existing_game_step, game_name, login, password)
 
-    def process_email_login_for_existing_game_step(message: Message, game_name: str, login: str, password: str):
-        email_login = message.text
-        msg = bot.send_message(message.chat.id, "Введите пароль от почты:")
-        bot.register_next_step_handler(msg, lambda m: add_account_to_existing_game(m, game_name, login, password, email_login))
+    def process_additional_info_for_existing_game_step(message: Message, game_name: str, login: str, password: str):
+        additional_info = None if message.text.lower() == "none" else message.text
+        add_account_to_existing_game(message, game_name, login, password, additional_info)
 
-    def add_account_to_existing_game(message: Message, game_name: str, login: str, password: str, email_login: str):
-        email_password = message.text
+    def add_account_to_existing_game(message: Message, game_name: str, login: str, password: str, additional_info: str):
         games = load_games()
-        game = next((g for g in games if g.name == game_name), None)
-        
-        try:
-            if game:
-                account = Account(login, password, email_login, email_password)
+        for game in games:
+            if game.name == game_name:
+                account = Account(login=login, password=password, additional_info=additional_info)
                 game.accounts.append(account)
                 save_games(games)
-                bot.send_message(message.chat.id, f"Аккаунт успешно добавлен к игре {game_name}")
-                update_lot(message, game, cardinal)
-            else:
-                bot.send_message(message.chat.id, f"❌ Игра {game_name} не найдена в базе данных")
-        except Exception as e:
-            bot.send_message(message.chat.id, f"❌ Ошибка при добавлении аккаунта: {e}")
+                bot.send_message(message.chat.id, f"✅ Аккаунт {login} успешно добавлен в игру {game_name}!")
+                return
+        bot.send_message(message.chat.id, f"❌ Игра {game_name} не найдена!")
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith(("info_game:", "delete_from_game:")))
     def handle_game_callbacks(call):

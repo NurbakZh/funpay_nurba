@@ -640,6 +640,7 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
     if not (config_obj := getattr(e, "config_section_obj")):
         delivery_info = _("ntfc_new_order_not_in_cfg")
     else:
+        print("8", config_obj)
         if not c.autodelivery_enabled and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
             delivery_info = _("ntfc_new_order_ad_disabled")
         elif "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and config_obj.getboolean("disable"):
@@ -922,6 +923,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 
         try:
             if file_name := cfg_obj.get("productsFileName"):
+                print("9", cfg_obj)
                 if c.multidelivery_enabled and not cfg_obj.getboolean("disableMultiDelivery"):
                     amount = e.order.amount if e.order.amount else 1
                 products, goods_left = cardinal_tools.get_products(f"storage/products/{file_name}", amount)
