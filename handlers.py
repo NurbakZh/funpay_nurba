@@ -149,7 +149,14 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 
         elif text and text.startswith("!arenda"):
             try:
-                game_name = text.split("!arenda ")[1].strip()
+                # Split the command and check if game name is provided
+                parts = text.split("!arenda ", 1)
+                if len(parts) < 2 or not parts[1].strip():
+                    text = "❌ Не указано название игры. Используйте: !arenda <название игры>"
+                    Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                    break
+                    
+                game_name = parts[1].strip()
                 games = load_games()
                 game = next((g for g in games if g.name.lower() == game_name.lower()), None)
                 
@@ -643,7 +650,7 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
         print("8", config_obj)
         if not c.autodelivery_enabled and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description:
             delivery_info = _("ntfc_new_order_ad_disabled")
-        elif "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and config_obj.getboolean("disable"):
+        elif "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and isinstance(config_obj, dict) and any(key in e.order.description.lower() for key in config_obj.keys()):
             delivery_info = _("ntfc_new_order_ad_disabled_for_lot")
         elif c.bl_delivery_enabled and e.order.buyer_username in c.blacklist:
             delivery_info = _("ntfc_new_order_user_blocked")
