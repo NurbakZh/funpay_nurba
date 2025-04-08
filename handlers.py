@@ -1073,7 +1073,7 @@ def deliver_product_handler(c: Cardinal, e: NewOrderEvent, *args) -> None:
         return
     if "🖤❤️【Аренда на " not in e.order.description:
         print("не аренда")
-        if config_section_obj.getboolean("disable")
+        if config_section_obj.getboolean("disable"):
             logger.info(f"Для лота \"{e.order.description}\" отключена автовыдача.")  # locale
             return
 
