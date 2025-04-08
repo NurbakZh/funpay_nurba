@@ -247,7 +247,6 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 
         elif text and text.startswith("!arenda_xbox"):
             try:
-                # Split the command and check if game name is provided
                 parts = text.split("!arenda_xbox ", 1)
                 if len(parts) < 2 or not parts[1].strip():
                     text = "❌ Не указано название игры. Используйте: !arenda_xbox <название игры>"
@@ -255,10 +254,9 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                     break
                     
                 game_name = parts[1].strip()
-                # Import the appropriate module based on the platform
                 from plugins.xboxAccount import load_games
                     
-                game = next((g for g in load_games() if g.name.lower() == game_name.lower() and g.platform == "Xbox"), None)
+                game = next((g for g in load_games() if g.name.lower() == game_name.lower()), None)
                 
                 if not game:
                     text = f"❌ Аккаунт по игре {game_name} не продаётся у продавца на платформе Xbox"
@@ -290,10 +288,9 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                     break
                     
                 game_name = parts[1].strip()
-                # Import the appropriate module based on the platform
                 from plugins.psAccount import load_games
                     
-                game = next((g for g in load_games() if g.name.lower() == game_name.lower() and g.platform == "PlayStation"), None)
+                game = next((g for g in load_games() if g.name.lower() == game_name.lower()), None)
                 
                 if not game:
                     text = f"❌ Аккаунт по игре {game_name} не продаётся у продавца на платформе PlayStation"
@@ -325,7 +322,6 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                     break
                     
                 game_name = parts[1].strip()
-                # Import the appropriate module based on the platform
                 from plugins.steamAccounts import load_games
                     
                 game = next((g for g in load_games() if g.name.lower() == game_name.lower()), None)
@@ -856,7 +852,6 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
         logger.error(f"Invalid duration format: {duration}")
         return
 
-    # Import the appropriate module based on the platform
     if "❤️🖤【Steam】🖤❤️" in game_name:
         from plugins.steamAccounts import load_games, save_games, update_lot
         lot_type = "Steam_arenda"
@@ -866,9 +861,6 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
     elif "❤️🖤【Xbox SERIES X/S】🖤❤️" in game_name:
         from plugins.xboxAccount import load_games, save_games, update_lot
         lot_type = "Xbox_arenda"
-    else:
-        logger.error("Unknown platform in game name")
-        return
 
     expiration_time = datetime.now() + timedelta(seconds=seconds)
     logger.info(f"Started rental timer for {account_login} until {expiration_time}")

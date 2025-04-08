@@ -235,6 +235,8 @@ def init_commands(cardinal: Cardinal):
             suitable_game_option = {'value': '', 'text': ''}
             suitable_platform_option = {'value': '', 'text': ''}
 
+            print(type_of_lot, game.edition_name)
+
             if game_options is not None:
                 suitable_game_option = next((option for option in game_options if game.name in option["text"]), None)
                 if suitable_game_option is None:
@@ -269,8 +271,8 @@ def init_commands(cardinal: Cardinal):
                     "fields[platform]": suitable_platform_option["value"],
                     "fields[desc][ru]": description,
                     "fields[desc][en]": translate_text(description, "en"),
-                    "fields[type]": type_of_lot["value"] if type_of_lot else game.edition_name,
-                    "fields[type2]": type_of_lot["value"] if type_of_lot else game.edition_name,
+                    "fields[type]": type_of_lot["value"] if type_of_lot["value"] and type_of_lot != "" else game.edition_name,
+                    "fields[type2]": type_of_lot["value"] if type_of_lot["value"] and type_of_lot != "" else game.edition_name,
                 }
 
                 lot = FunPayAPI.types.LotFields(0, lot_fields)
