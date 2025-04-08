@@ -275,8 +275,8 @@ def init_commands(cardinal: Cardinal):
                     "fields[platform]": suitable_platform_option["value"],
                     "fields[desc][ru]": description,
                     "fields[desc][en]": translate_text(description, "en"),
-                    "fields[type]": type_of_lot["value"] if type_of_lot else '',
-                    "fields[type2]": type_of_lot["value"] if type_of_lot else ''
+                    "fields[type]": type_of_lot["value"] if type_of_lot else game.edition_name,
+                    "fields[type2]": type_of_lot["value"] if type_of_lot else game.edition_name,
                 }
 
                 lot = FunPayAPI.types.LotFields(0, lot_fields)
