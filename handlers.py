@@ -98,17 +98,10 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
     for index, event in enumerate(e.stack.get_stack()):
         username, text = event.message.author, event.message.text or event.message.image_link
         
-        if text and text.startswith("!time_left"):
+        if text and text.startswith("!time_left_ps"):
             try:
-                account_login = text.split("!time_left ")[1].strip()
-                # Import the appropriate module based on the platform
-                if "❤️🖤【Steam】🖤❤️" in event.message.text:
-                    from plugins.steamAccounts import load_games
-                elif "❤️🖤【PS 5】🖤❤️" in event.message.text:
-                    from plugins.psAccount import load_games
-                elif "❤️🖤【Xbox SERIES X/S】🖤❤️" in event.message.text:
-                    from plugins.xboxAccount import load_games
-                    
+                account_login = text.split("!time_left_ps ")[1].strip()
+                from plugins.psAccount import load_games
                 games = load_games()
                 
                 # Find the rented account
@@ -146,10 +139,108 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 ⌛️ Осталось времени: {days} д. {hours} ч. {minutes} мин."""
 
                 Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
-                logger.info(f"Получил запрос на оставшееся время аренды для аккаунта {account_login} от пользователя {chat_name} (CID: {chat_id})")
+                logger.info(f"Получил запрос на оставшееся время аренды для PlayStation аккаунта {account_login} от пользователя {chat_name} (CID: {chat_id})")
                 break
             except Exception as e:
-                logger.error(f"Ошибка при обработке команды !time_left: {str(e)}")
+                logger.error(f"Ошибка при обработке команды !time_left_ps: {str(e)}")
+                text = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                break
+
+        elif text and text.startswith("!time_left_pc"):
+            try:
+                account_login = text.split("!time_left_pc ")[1].strip()
+                from plugins.steamAccounts import load_games
+                games = load_games()
+                
+                # Find the rented account
+                rented_account = None
+                game_name = None
+                for game in games:
+                    for account in game.accounts:
+                        if account.login == account_login and account.is_rented:
+                            rented_account = account
+                            game_name = game.name
+                            break
+                    if rented_account:
+                        break
+                
+                if not rented_account:
+                    text = f"❌ Аккаунт {account_login} не найден или не находится в аренде"
+                else:
+                    # Calculate remaining time
+                    current_time = datetime.now()
+                    rental_end_str = rented_account.time_of_rent if hasattr(rented_account, 'time_of_rent') else None
+                    
+                    if not rental_end_str:
+                        text = "❌ Не удалось определить время окончания аренды"
+                    else:
+                        rental_end = datetime.strptime(rental_end_str, '%d-%m-%Y %H-%M-%S')
+                        remaining = rental_end - current_time
+                        hours = remaining.seconds // 3600
+                        minutes = (remaining.seconds % 3600) // 60  
+                        days = remaining.days
+                        text = f"""⏳ Информация об аренде:
+
+🎮 Игра: {game_name}
+👤 Аккаунт: {account_login}
+
+⌛️ Осталось времени: {days} д. {hours} ч. {minutes} мин."""
+
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.info(f"Получил запрос на оставшееся время аренды для Steam аккаунта {account_login} от пользователя {chat_name} (CID: {chat_id})")
+                break
+            except Exception as e:
+                logger.error(f"Ошибка при обработке команды !time_left_pc: {str(e)}")
+                text = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                break
+
+        elif text and text.startswith("!time_left_xbox"):
+            try:
+                account_login = text.split("!time_left_xbox ")[1].strip()
+                from plugins.xboxAccount import load_games
+                games = load_games()
+                
+                # Find the rented account
+                rented_account = None
+                game_name = None
+                for game in games:
+                    for account in game.accounts:
+                        if account.login == account_login and account.is_rented:
+                            rented_account = account
+                            game_name = game.name
+                            break
+                    if rented_account:
+                        break
+                
+                if not rented_account:
+                    text = f"❌ Аккаунт {account_login} не найден или не находится в аренде"
+                else:
+                    # Calculate remaining time
+                    current_time = datetime.now()
+                    rental_end_str = rented_account.time_of_rent if hasattr(rented_account, 'time_of_rent') else None
+                    
+                    if not rental_end_str:
+                        text = "❌ Не удалось определить время окончания аренды"
+                    else:
+                        rental_end = datetime.strptime(rental_end_str, '%d-%m-%Y %H-%M-%S')
+                        remaining = rental_end - current_time
+                        hours = remaining.seconds // 3600
+                        minutes = (remaining.seconds % 3600) // 60  
+                        days = remaining.days
+                        text = f"""⏳ Информация об аренде:
+
+🎮 Игра: {game_name}
+👤 Аккаунт: {account_login}
+
+⌛️ Осталось времени: {days} д. {hours} ч. {minutes} мин."""
+
+                Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
+                logger.info(f"Получил запрос на оставшееся время аренды для Xbox аккаунта {account_login} от пользователя {chat_name} (CID: {chat_id})")
+                break
+            except Exception as e:
+                logger.error(f"Ошибка при обработке команды !time_left_xbox: {str(e)}")
                 text = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
                 Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
                 break
@@ -165,8 +256,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                     
                 game_name = parts[1].strip()
                 # Import the appropriate module based on the platform
-                if "❤️🖤【Xbox SERIES X/S】🖤❤️" in game_name:
-                    from plugins.xboxAccount import load_games
+                from plugins.xboxAccount import load_games
                     
                 game = next((g for g in load_games() if g.name.lower() == game_name.lower() and g.platform == "Xbox"), None)
                 
@@ -201,8 +291,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                     
                 game_name = parts[1].strip()
                 # Import the appropriate module based on the platform
-                if "❤️🖤【PS 5】🖤❤️" in game_name:
-                    from plugins.psAccount import load_games
+                from plugins.psAccount import load_games
                     
                 game = next((g for g in load_games() if g.name.lower() == game_name.lower() and g.platform == "PlayStation"), None)
                 
@@ -237,8 +326,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
                     
                 game_name = parts[1].strip()
                 # Import the appropriate module based on the platform
-                if "❤️🖤【Steam】🖤❤️" in game_name:
-                    from plugins.steamAccounts import load_games
+                from plugins.steamAccounts import load_games
                     
                 game = next((g for g in load_games() if g.name.lower() == game_name.lower()), None)
                 
@@ -880,7 +968,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 ⏰ Срок аренды: {duration}
 ⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
 
-!time_left {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
+!time_left_pc {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
 
 {f"!get_code {available_account.login} - 🔑 Команда для получения кода Social Club" if available_account.email_login != "none" else ""}
 
@@ -942,7 +1030,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 ⏰ Срок аренды: {duration}
 ⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
 
-!time_left {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
+!time_left_ps {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
 
 {f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
 
@@ -1002,7 +1090,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 ⏰ Срок аренды: {duration}
 ⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
 
-!time_left {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
+!time_left_xbox {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
 
 {f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
 
