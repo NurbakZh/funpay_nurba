@@ -32,7 +32,7 @@ logger = getLogger("FPC.xbox_accounts_plugin")
 RUNNING = False
 
 class Account:
-    def __init__(self, login: str, password: str, is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
+       def __init__(self, login: str, password: str, is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
         self.login = login
         self.password = password
         self.is_rented = is_rented
@@ -43,20 +43,21 @@ class Account:
         return {
             "login": self.login,
             "password": self.password,
-            "is_rented": self.is_rented,
-            "time_of_rent": self.time_of_rent,
-            "additional_info": self.additional_info
+            "isRented": self.is_rented,
+            "timeOfRent": self.time_of_rent,
+            "additionalInfo": self.additional_info
         }
 
     @staticmethod
     def from_dict(data: dict) -> 'Account':
-        return Account(
+        account = Account(
             login=data["login"],
             password=data["password"],
             is_rented=data["isRented"],
             time_of_rent=data["timeOfRent"],
-            additional_info=data.get("additional_info")
+            additional_info=data.get("additionalInfo")
         )
+        return account
 
 class Game:
     def __init__(self, name: str, lot_name: str, prices: Dict[str, Dict[str, str]], accounts: List[Account] = None, edition_name: str = ""):
@@ -237,8 +238,6 @@ def init_commands(cardinal: Cardinal):
             
             suitable_game_option = {'value': '', 'text': ''}
             suitable_platform_option = {'value': '', 'text': ''}
-
-            print(type_of_lot, game.edition_name)
 
             if game_options is not None:
                 suitable_game_option = next((option for option in game_options if game.name in option["text"]), None)
