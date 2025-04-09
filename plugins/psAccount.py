@@ -44,7 +44,7 @@ class Account:
             "login": self.login,
             "password": self.password,
             "is_rented": self.is_rented,
-            "time_of_rent": self.time_of_rent.isoformat() if self.time_of_rent else None,
+            "time_of_rent": self.time_of_rent,
             "additional_info": self.additional_info
         }
 
@@ -53,8 +53,8 @@ class Account:
         return Account(
             login=data["login"],
             password=data["password"],
-            is_rented=data.get("is_rented", False),
-            time_of_rent=datetime.fromisoformat(data["time_of_rent"]) if data.get("time_of_rent") else None,
+            is_rented=data["isRented"],
+            time_of_rent=data["timeOfRent"],
             additional_info=data.get("additional_info")
         )
 
