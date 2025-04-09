@@ -32,32 +32,32 @@ logger = getLogger("FPC.ps_accounts_plugin")
 RUNNING = False
 
 class Account:
-     def __init__(self, login: str, password: str, is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
-        self.login = login
-        self.password = password
-        self.is_rented = is_rented
-        self.time_of_rent = time_of_rent
-        self.additional_info = additional_info
+        def __init__(self, login: str, password: str, is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
+            self.login = login
+            self.password = password
+            self.is_rented = is_rented
+            self.time_of_rent = time_of_rent
+            self.additional_info = additional_info
 
-    def to_dict(self) -> dict:
-        return {
-            "login": self.login,
-            "password": self.password,
-            "isRented": self.is_rented,
-            "timeOfRent": self.time_of_rent,
-            "additionalInfo": self.additional_info
-        }
+        def to_dict(self) -> dict:
+            return {
+                "login": self.login,
+                "password": self.password,
+                "isRented": self.is_rented,
+                "timeOfRent": self.time_of_rent,
+                "additionalInfo": self.additional_info
+            }
 
-    @staticmethod
-    def from_dict(data: dict) -> 'Account':
-        account = Account(
-            login=data["login"],
-            password=data["password"],
-            is_rented=data["isRented"],
-            time_of_rent=data["timeOfRent"],
-            additional_info=data.get("additionalInfo")
-        )
-        return account
+        @staticmethod
+        def from_dict(data: dict) -> 'Account':
+            account = Account(
+                login=data["login"],
+                password=data["password"],
+                is_rented=data["isRented"],
+                time_of_rent=data["timeOfRent"],
+                additional_info=data.get("additionalInfo")
+            )
+            return account
 
 class Game:
     def __init__(self, name: str, lot_name: str, prices: Dict[str, Dict[str, str]], accounts: List[Account] = None, edition_name: str = ""):
@@ -115,18 +115,15 @@ def edit_game(lot_name: str, updated_data: dict):
     save_games(games)
 
 def load_games() -> List[Game]:
-    try:
-        storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
-        file_path = os.path.join(storage_dir, 'ps_accounts.json')
-        
-        if not os.path.exists(file_path):
-            return []
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return [Game.from_dict(game_data) for game_data in data]
-    except Exception as e:
-        print(e)
+    storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
+    file_path = os.path.join(storage_dir, 'ps_accounts.json')
+    
+    if not os.path.exists(file_path):
+        return []
+    
+    with open(file_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    return [Game.from_dict(game_data) for game_data in data]
 
 duration_names = {
     "1h": "1 час",

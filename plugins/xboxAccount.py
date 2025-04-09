@@ -32,7 +32,7 @@ logger = getLogger("FPC.xbox_accounts_plugin")
 RUNNING = False
 
 class Account:
-       def __init__(self, login: str, password: str, is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
+    def __init__(self, login: str, password: str, is_rented: bool = False, time_of_rent: Optional[datetime] = None, additional_info: str = None):
         self.login = login
         self.password = password
         self.is_rented = is_rented
@@ -115,18 +115,15 @@ def edit_game(lot_name: str, updated_data: dict):
     save_games(games)
 
 def load_games() -> List[Game]:
-    try:
-        storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
-        file_path = os.path.join(storage_dir, 'xbox_accounts.json')
-        
-        if not os.path.exists(file_path):
-            return []
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return [Game.from_dict(game_data) for game_data in data]
-    except Exception as e:
-        print(e)
+    storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
+    file_path = os.path.join(storage_dir, 'xbox_accounts.json')
+    
+    if not os.path.exists(file_path):
+        return []
+    
+    with open(file_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    return [Game.from_dict(game_data) for game_data in data]
 
 duration_names = {
     "1h": "1 час",

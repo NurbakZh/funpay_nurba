@@ -100,7 +100,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
         
         if text and text.startswith("!time_left_ps"):
             try:
-                account_login = text.split("!time_left_ps ")[1].strip()
+                account_login = text.split("!time_left_ps")[1].strip()
                 from plugins.psAccount import load_games
                 games = load_games()
                 
@@ -149,7 +149,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 
         elif text and text.startswith("!time_left_pc"):
             try:
-                account_login = text.split("!time_left_pc ")[1].strip()
+                account_login = text.split("!time_left_pc")[1].strip()
                 from plugins.steamAccounts import load_games
                 games = load_games()
                 
@@ -198,10 +198,10 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 
         elif text and text.startswith("!time_left_xbox"):
             try:
-                account_login = text.split("!time_left_xbox ")[1].strip()
+                account_login = text.split("!time_left_xbox")[1].strip()
                 from plugins.xboxAccount import load_games
                 games = load_games()
-                
+
                 # Find the rented account
                 rented_account = None
                 game_name = None
@@ -247,7 +247,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
 
         elif text and text.startswith("!arenda_xbox"):
             try:
-                parts = text.split("!arenda_xbox ", 1)
+                parts = text.split("!arenda_xbox", 1)
                 if len(parts) < 2 or not parts[1].strip():
                     text = "❌ Не указано название игры. Используйте: !arenda_xbox <название игры>"
                     Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
@@ -281,7 +281,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
         elif text and text.startswith("!arenda_ps"):
             try:
                 # Split the command and check if game name is provided
-                parts = text.split("!arenda_ps ", 1)
+                parts = text.split("!arenda_ps", 1)
                 if len(parts) < 2 or not parts[1].strip():
                     text = "❌ Не указано название игры. Используйте: !arenda_ps <название игры>"
                     Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
@@ -315,7 +315,7 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
         elif text and text.startswith("!arenda"):
             try:
                 # Split the command and check if game name is provided
-                parts = text.split("!arenda ", 1)
+                parts = text.split("!arenda", 1)
                 if len(parts) < 2 or not parts[1].strip():
                     text = "❌ Не указано название игры. Используйте: !arenda <название игры>"
                     Thread(target=c.send_message, args=(chat_id, text, chat_name), daemon=True).start()
@@ -823,7 +823,7 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
             delivery_info = _("ntfc_new_order_will_be_delivered")
     text = _("ntfc_new_order", f"{utils.escape(e.order.description)}, {utils.escape(e.order.subcategory_name)}",
              e.order.buyer_username, f"{e.order.price} {e.order.currency}", e.order.id, delivery_info)
-
+    
     chat_id = c.account.get_chat_by_name(e.order.buyer_username, True).id
     keyboard = keyboards.new_order(e.order.id, e.order.buyer_username, chat_id)
     Thread(target=c.telegram.send_notification, args=(text, keyboard, utils.NotificationTypes.new_order),
@@ -919,6 +919,8 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     chat_id = c.account.get_chat_by_name(e.order.buyer_username).id
     cfg_obj = getattr(e, "config_section_obj")
+    print(chat_id, cfg_obj)
+    print(e.order.description)
 
     if "❤️🖤【Steam】🖤❤️【Аренда на " in e.order.description:
         description = e.order.description
@@ -985,7 +987,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
         description = e.order.description
         game_name = description.split("【")[1].split("】")[0]
-        duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
+        duration = description.split("【Аренда на ")[1].split("】")[0]
 
         from plugins.psAccount import load_games, save_games, update_lot
         games = load_games()
@@ -1043,14 +1045,16 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
                    daemon=True).start()
 
     elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
+        print('here xbox')
         description = e.order.description
         game_name = description.split("【")[1].split("】")[0]
-        duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
-
+        print(game_name)
+        duration = description.split("【Аренда на ")[1].split("】")[0]
+        print(duration)
         from plugins.xboxAccount import load_games, save_games, update_lot
         games = load_games()
         game = next((g for g in games if g.name == game_name), None)
-
+        print(game)
         if not game:
             logger.error(f"Game {game_name} not found in database for order {e.order.id}")
             return
@@ -1150,6 +1154,7 @@ def deliver_product_handler(c: Cardinal, e: NewOrderEvent, *args) -> None:
     # Checks if the order has a valid config section object. If not, returns early.
     # The config section object contains delivery settings for the specific lot type.
     if (config_section_obj := getattr(e, "config_section_obj")) is None:
+        print("NONE")
         return
     if "🖤❤️【Аренда на " not in e.order.description:
         print("не аренда")
