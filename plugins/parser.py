@@ -198,11 +198,11 @@ def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region
             data = []
 
         existing_entry = next((item for item in data if 
-            item['game_id'] == game_id and 
-            item['funpay_game_name'] == funpay_game_name and
-            item['lot_name'] == lot_name and
-            item['node_id'] == node_id and
-            item['region'] == region), None)
+            item.get('game_id') == game_id and 
+            item.get('funpay_game_name') == funpay_game_name and
+            item.get('lot_name') == lot_name and
+            item.get('node_id') == node_id and
+            item.get('region') == region), None)
 
         if existing_entry:
             existing_entry['price'] = price
@@ -639,6 +639,7 @@ def init_commands(cardinal: Cardinal):
                     "fields[payment_msg][en]": payment_en,
                     "secrets": "",
                     "fields[type]": type_of_lot["value"] if type_of_lot else '',
+                    "fields[type1]": type_of_lot["value"] if type_of_lot else '',
                     "fields[type2]": type_of_lot["value"] if type_of_lot else '',
                 }
                 if launcher_s is not None:

@@ -9,10 +9,16 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cardinal import Cardinal
 
-from FunPayAPI.types import OrderShortcut, Order
+from FunPayAPI.types import OrderShortcut, Order, MessageTypes, Currency
 from FunPayAPI import exceptions, utils as fp_utils
 from FunPayAPI.updater.events import *
 
+import requests
+import uuid
+import threading
+import json
+import os
+from telebot.types import Message, InlineKeyboardMarkup as K, InlineKeyboardButton as B
 from tg_bot import utils, keyboards
 from Utils import cardinal_tools
 from locales.localizer import Localizer
@@ -23,6 +29,8 @@ import logging
 import time
 import re
 from parser_helper import check_for_last, check_for_last_with_account
+import asyncio
+from topup import create_topup_order, pay_topup_order, get_exchange_rate
 
 LAST_STACK_ID = ""
 MSG_LOG_LAST_STACK_ID = ""
@@ -766,18 +774,13 @@ def log_new_order_handler(c: Cardinal, e: NewOrderEvent, *args):
 
 
 def setup_event_attributes_handler(c: Cardinal, e: NewOrderEvent, *args):
-    if "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
-        config_section_name = "Steam_arenda"
-        config_section_obj = {"Steam_arenda": "Steam_arenda"}
-    elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
-        config_section_name = "PS_arenda"
-        config_section_obj = {"PS_arenda": "PS_arenda"}
-    elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
-        config_section_name = "Xbox_arenda"
-        config_section_obj = {"Xbox_arenda": "Xbox_arenda"}
+    config_section_name = None
+    config_section_obj = None
+
+    if 'Банковская карта (по логину)' in e.order.description:
+        config_section_name = 'Банковская карта (по логину)'
+        config_section_obj = 'Банковская карта (по логину)'
     else:
-        config_section_name = None
-        config_section_obj = None
         for lot_name in c.AD_CFG:
             if lot_name in e.order.description:
                 config_section_obj = c.AD_CFG[lot_name]
@@ -785,19 +788,13 @@ def setup_event_attributes_handler(c: Cardinal, e: NewOrderEvent, *args):
                 break
 
     attributes = {"config_section_name": config_section_name, "config_section_obj": config_section_obj,
-                  "delivered": False, "delivery_text": None, "goods_delivered": 0, "goods_left": None,
-                  "error": 0, "error_text": None}
+                "delivered": False, "delivery_text": None, "goods_delivered": 0, "goods_left": None,
+                "error": 0, "error_text": None}
     for i in attributes:
         setattr(e, i, attributes[i])
 
-    if config_section_obj is None and "❤️🖤【STEAM】🖤❤️【Аренда на " not in e.order.description and "❤️🖤【PS 5】🖤❤️【Аренда на " not in e.order.description and "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " not in e.order.description:
+    if config_section_obj is None:
         logger.info("Лот не найден в конфиге авто-выдачи!")  # todo
-    elif "❤️🖤【STEAM】🖤❤️【Аренда на " in e.order.description:
-        logger.info("Лот на аренду Steam найден в конфиге авто-выдачи!")  # todo
-    elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
-        logger.info("Лот на аренду PlayStation найден в конфиге авто-выдачи!")  # todo
-    elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
-        logger.info("Лот на аренду Xbox найден в конфиге авто-выдачи!")  # todo
     else:
         logger.info("Лот найден в конфиге авто-выдачи!")  # todo
 
@@ -813,17 +810,18 @@ def send_new_order_notification_handler(c: Cardinal, e: NewOrderEvent, *args):
     if not (config_obj := getattr(e, "config_section_obj")):
         delivery_info = _("ntfc_new_order_not_in_cfg")
     else:
-        if not c.autodelivery_enabled and "🖤❤️【Аренда на " not in e.order.description:
+        if not c.autodelivery_enabled:
             delivery_info = _("ntfc_new_order_ad_disabled")
-        elif "🖤❤️【Аренда на " not in e.order.description and isinstance(config_obj, dict) and any(key in e.order.description.lower() for key in config_obj.keys()):
-            delivery_info = _("ntfc_new_order_ad_disabled_for_lot")
+        elif 'Банковская карта (по логину)' not in e.order.description:
+            if config_obj.getboolean("disable"):
+                delivery_info = _("ntfc_new_order_ad_disabled_for_lot")
         elif c.bl_delivery_enabled and e.order.buyer_username in c.blacklist:
             delivery_info = _("ntfc_new_order_user_blocked")
         else:
             delivery_info = _("ntfc_new_order_will_be_delivered")
     text = _("ntfc_new_order", f"{utils.escape(e.order.description)}, {utils.escape(e.order.subcategory_name)}",
              e.order.buyer_username, f"{e.order.price} {e.order.currency}", e.order.id, delivery_info)
-    
+
     chat_id = c.account.get_chat_by_name(e.order.buyer_username, True).id
     keyboard = keyboards.new_order(e.order.id, e.order.buyer_username, chat_id)
     Thread(target=c.telegram.send_notification, args=(text, keyboard, utils.NotificationTypes.new_order),
@@ -919,198 +917,71 @@ def check_rental_expiration(c: Cardinal, chat_id: int, username: str, account_lo
 def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     chat_id = c.account.get_chat_by_name(e.order.buyer_username).id
     cfg_obj = getattr(e, "config_section_obj")
-    print(chat_id, cfg_obj)
-    print(e.order.description)
-
-    if "❤️🖤【Steam】🖤❤️【Аренда на " in e.order.description:
-        description = e.order.description
-        game_name = description.split("【")[1].split("】")[0]
-        duration = description.split("【Аренда на ")[1].split(" (онлайн)】")[0]
-
-        from plugins.steamAccounts import load_games, save_games, update_lot
-        games = load_games()
-        game = next((g for g in games if g.name == game_name), None)
-
-        if not game:
-            logger.error(f"Game {game_name} not found in database for order {e.order.id}")
+    lot_number = 1
+    
+    if 'Банковская карта (по логину)' in e.order.description:
+        currency = e.order.description.split(',')[0]
+        amount_requested = e.order.description.split(',')[2]
+        steam_login = e.order.description.split(',')[3]
+        try:
+            custom_id = str(uuid.uuid4())
+            
+            amount_to_topup = float(amount_requested.strip().replace(' шт.', '').split(' ')[0])
+            if currency.strip().upper() != "USD":
+                exchange_rate = asyncio.run(get_exchange_rate(currency.strip(), "USD", 1.0))
+                if exchange_rate:
+                    amount_to_topup = round(amount_to_topup / exchange_rate, 2)
+                    logger.info(f"Конвертация {amount_requested} {currency} в {amount_to_topup} USD по курсу {exchange_rate}")
+                else:
+                    logger.error(f"Не удалось получить курс обмена {currency} -> USD")
+                    raise Exception(f"Не удалось получить курс обмена {currency} -> USD")
+            
+            logger.info(f"Создаем заказ на пополнение {steam_login} на сумму {amount_to_topup} USD")
+            create_result = asyncio.run(create_topup_order(amount_to_topup, steam_login.strip(), custom_id))
+            
+            if create_result["status"] != "success":
+                raise Exception(f"Ошибка создания заказа: {create_result.get('message', 'Неизвестная ошибка')}")
+            
+            logger.info(f"Оплачиваем заказ {custom_id}")
+            pay_result = asyncio.run(pay_topup_order(custom_id))
+            
+            if pay_result["status"] != "success":
+                raise Exception(f"Ошибка оплаты заказа: {pay_result.get('message', 'Неизвестная ошибка')}")
+            
+            payment_data = pay_result.get("payment_data", {})
+            order_id = custom_id
+            status = payment_data.get("status", "Неизвестно")
+            
+            success_message = f"✅ Аккаунт {steam_login} успешно пополнен на {amount_requested} {currency}!\n\n"
+            success_message += f"🔢 ID заказа: {order_id}\n"
+            success_message += f"📊 Статус: {'Выполнено' if status == 1 else 'Не выполнено'}\n"
+            success_message += f"\n⏱️ Средства будут зачислены в течение нескольких минут."
+            
+            result = c.send_message(chat_id, success_message, e.order.buyer_username)
+            
+            if result:
+                logger.info(f"Успешно пополнен аккаунт {steam_login} на сумму {amount_requested} {currency}")
+                setattr(e, "delivered", True)
+                setattr(e, "delivery_text", success_message)
+            else:
+                logger.error(f"Не удалось отправить сообщение о пополнении для заказа {e.order.id}")
+                raise Exception("Не удалось отправить сообщение пользователю")
+                
+        except Exception as exc:
+            logger.error(
+                f"Произошла ошибка при пополнении аккаунта для заказа $YELLOW{e.order.id}: {str(exc)}$RESET")
+            logger.debug("TRACEBACK", exc_info=True)
+            setattr(e, "error", 1)
+            setattr(e, "error_text",
+                    f"Произошла ошибка при пополнении аккаунта для заказа {e.order.id}: {str(exc)}")
+            
+            error_message = f"❌ Произошла ошибка при пополнении аккаунта {steam_login}:\n\n{str(exc)}\n\nОбратитесь в поддержку."
+            c.send_message(chat_id, error_message, e.order.buyer_username)
             return
-
-        available_account = None
-        for acc in game.accounts:
-            if not acc.is_rented:
-                available_account = acc
-                break
-        
-        if not available_account:
-            logger.error(f"No available accounts for game {game_name} for order {e.order.id}")
-            return
-
-        # Update the account in game.accounts list
-        for acc in game.accounts:
-            if acc.login == available_account.login:
-                acc.is_rented = True
-                acc.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
-                break
-
-        save_games(games)
-
-        delivery_text = f"""💫 Данные для входа в аккаунт:
-
-📧 Логин Steam: {available_account.login}
-🔑 Пароль Steam: {available_account.password}
-
-⏰ Срок аренды: {duration}
-⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
-
-!time_left_pc {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
-
-{f"!get_code {available_account.login} - 🔑 Команда для получения кода Social Club" if available_account.email_login != "none" else ""}
-
-{f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
-
-❗️ Строго соблюдайте правила, прописанные в правилах аренды"""
-
-        result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
-
-        if not result:
-            logger.error(f"Failed to send account details for order {e.order.id}")
-            available_account.is_rented = False 
-            save_games(games)
-        else:
-            logger.info(f"Account details delivered for order {e.order.id}")
-            update_lot("Steam_arenda", game, c)
-            # Start expiration timer thread
-            Thread(target=check_rental_expiration,
-                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, available_account.email_login, game_name, duration),
-                   daemon=True).start()
-
-    elif "❤️🖤【PS 5】🖤❤️【Аренда на " in e.order.description:
-        description = e.order.description
-        game_name = description.split("【")[1].split("】")[0]
-        duration = description.split("【Аренда на ")[1].split("】")[0]
-
-        from plugins.psAccount import load_games, save_games, update_lot
-        games = load_games()
-        game = next((g for g in games if g.name == game_name), None)
-
-        if not game:
-            logger.error(f"Game {game_name} not found in database for order {e.order.id}")
-            return
-
-        available_account = None
-        for acc in game.accounts:
-            if not acc.is_rented:
-                available_account = acc
-                break
-        
-        if not available_account:
-            logger.error(f"No available accounts for game {game_name} for order {e.order.id}")
-            return
-
-        # Update the account in game.accounts list
-        for acc in game.accounts:
-            if acc.login == available_account.login:
-                acc.is_rented = True
-                acc.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
-                break
-
-        save_games(games)
-
-        delivery_text = f"""💫 Данные для входа в аккаунт:
-
-📧 Логин PlayStation: {available_account.login}
-🔑 Пароль PlayStation: {available_account.password}
-
-⏰ Срок аренды: {duration}
-⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
-
-!time_left_ps {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
-
-{f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
-
-❗️ Строго соблюдайте правила, прописанные в правилах аренды"""
-
-        result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
-
-        if not result:
-            logger.error(f"Failed to send account details for order {e.order.id}")
-            available_account.is_rented = False 
-            save_games(games)
-        else:
-            logger.info(f"Account details delivered for order {e.order.id}")
-            update_lot("PS_arenda", game, c)
-            # Start expiration timer thread
-            Thread(target=check_rental_expiration,
-                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, None, game_name, duration),
-                   daemon=True).start()
-
-    elif "❤️🖤【Xbox SERIES X/S】🖤❤️【Аренда на " in e.order.description:
-        print('here xbox')
-        description = e.order.description
-        game_name = description.split("【")[1].split("】")[0]
-        print(game_name)
-        duration = description.split("【Аренда на ")[1].split("】")[0]
-        print(duration)
-        from plugins.xboxAccount import load_games, save_games, update_lot
-        games = load_games()
-        game = next((g for g in games if g.name == game_name), None)
-        print(game)
-        if not game:
-            logger.error(f"Game {game_name} not found in database for order {e.order.id}")
-            return
-
-        available_account = None
-        for acc in game.accounts:
-            if not acc.is_rented:
-                available_account = acc
-                break
-        
-        if not available_account:
-            logger.error(f"No available accounts for game {game_name} for order {e.order.id}")
-            return
-
-        # Update the account in game.accounts list
-        for acc in game.accounts:
-            if acc.login == available_account.login:
-                acc.is_rented = True
-                acc.time_of_rent = (datetime.now() + timedelta(hours=int(duration.split()[0]))).strftime('%d-%m-%Y %H-%M-%S')
-                break
-
-        save_games(games)
-
-        delivery_text = f"""💫 Данные для входа в аккаунт:
-
-📧 Логин Xbox: {available_account.login}
-🔑 Пароль Xbox: {available_account.password}
-
-⏰ Срок аренды: {duration}
-⌛️ Время завершения: {available_account.time_of_rent} (по Мск)
-
-!time_left_xbox {available_account.login} - ⌚️ Команда для определения времени до окончания аренды
-
-{f"📝 Доп информация: {available_account.additional_info}" if available_account.additional_info != "none" else ""}
-
-❗️ Строго соблюдайте правила, прописанные в правилах аренды"""
-
-        result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
-
-        if not result:
-            logger.error(f"Failed to send account details for order {e.order.id}")
-            available_account.is_rented = False 
-            save_games(games)
-        else:
-            logger.info(f"Account details delivered for order {e.order.id}")
-            update_lot("Xbox_arenda", game, c)
-            # Start expiration timer thread
-            Thread(target=check_rental_expiration,
-                   args=(c, chat_id, e.order.buyer_username, available_account.login, available_account.password, None, game_name, duration),
-                   daemon=True).start()
-    else:    
-        print("other arenda", e.order.description)
+    else:
         delivery_text = cardinal_tools.format_order_text(cfg_obj["response"], e.order)
 
         amount, goods_left, products = 1, -1, []
-
         try:
             if file_name := cfg_obj.get("productsFileName"):
                 if c.multidelivery_enabled and not cfg_obj.getboolean("disableMultiDelivery"):
@@ -1120,7 +991,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
         except Exception as exc:
             logger.error(
                 f"Произошла ошибка при получении товаров для заказа $YELLOW{e.order.id}: {str(exc)}$RESET")  # locale
-            logger.debug("TRACEBACK", exc)
+            logger.debug("TRACEBACK", exc_info=True)
             setattr(e, "error", 1)
             setattr(e, "error_text",
                     f"Произошла ошибка при получении товаров для заказа {e.order.id}: {str(exc)}")  # locale
@@ -1151,13 +1022,10 @@ def deliver_product_handler(c: Cardinal, e: NewOrderEvent, *args) -> None:
         logger.info(f"Пользователь {e.order.buyer_username} находится в ЧС и включена блокировка автовыдачи. "
                     f"$YELLOW(ID: {e.order.id})$RESET")  # locale
         return
-    # Checks if the order has a valid config section object. If not, returns early.
-    # The config section object contains delivery settings for the specific lot type.
+
     if (config_section_obj := getattr(e, "config_section_obj")) is None:
-        print("NONE")
         return
-    if "🖤❤️【Аренда на " not in e.order.description:
-        print("не аренда")
+    if 'Банковская карта (по логину)' not in e.order.description:
         if config_section_obj.getboolean("disable"):
             logger.info(f"Для лота \"{e.order.description}\" отключена автовыдача.")  # locale
             return
@@ -1248,7 +1116,7 @@ def update_lots_states(cardinal: Cardinal, event: NewOrderEvent):
         config_obj = get_lot_config_by_name(cardinal, lot.description)
 
         # Если лот уже деактивирован
-        if lot.id not in lots:
+        if lot_id not in lots:
             # и не найден в конфиге автовыдачи (глобальное автовосстановление включено)
             if config_obj is None:
                 if cardinal.autorestore_enabled:
