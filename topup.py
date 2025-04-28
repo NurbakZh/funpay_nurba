@@ -113,6 +113,17 @@ async def update_currency_rates() -> Optional[Dict[str, Any]]:
             return None
 
 
+class NoFoundLogin(Exception):
+    def __init__(self, login):
+        self.login = login
+        super().__init__(f"⚠️ Логин не найден, либо регион аккаунта - не СНГ. Пожалуйста, перепроверьте логин и регион.\n\n"+
+
+"Если ваш регион не Россия, Украина, Казахстан - отправьте команду «!возврат» без кавычек\n"+
+"Если вы ошиблись логином то отправьте верный логин Steam (Не ник)\n"+
+
+"∟ Узнать логин можно по этой ссылке:\n"+
+"https://telegra.ph/Gde-poluchit-Login-Steam-02-01")
+
 async def create_topup_order(amount: float, steam_login: str, custom_id: str) -> dict:
     """Создаёт заказ на пополнение Steam с актуальным токеном."""
     token_data = read_token_from_file()
@@ -142,6 +153,11 @@ async def create_topup_order(amount: float, steam_login: str, custom_id: str) ->
                     order_data = await response.json()
                     print(f"Заказ успешно создан: {order_data}")
                     return {"status": "success", "order_data": order_data}
+                elif response.status == 400:
+                    error_data = await response.json()
+                    if "detail" in error_data and "there is no such login" in error_data["detail"].lower():
+                        raise NoFoundLogin(steam_login)
+                    return {"status": "error", "message": f"Ошибка 400: {error_data}"}
                 elif response.status == 403:
                     print("Токен недействителен. Запрашиваем новый...")
                     new_token = await get_new_token()
@@ -162,6 +178,8 @@ async def create_topup_order(amount: float, steam_login: str, custom_id: str) ->
                     error_message = await response.text()
                     print(f"Ошибка создания заказа: статус {response.status}, сообщение: {error_message}")
                     return {"status": "error", "message": f"Ошибка {response.status}: {error_message}"}
+        except NoFoundLogin:
+            raise
         except aiohttp.ClientError as e:
             print(f"Ошибка запроса при создании заказа: {e}")
             return {"status": "error", "message": f"Ошибка запроса: {e}"}
@@ -191,6 +209,22 @@ async def pay_topup_order(custom_id: str) -> dict:
                     payment_data = await response.json()
                     print(f"Заказ успешно оплачен: {payment_data}")
                     return {"status": "success", "payment_data": payment_data}
+                elif response.status == 400:
+                    error_data = await response.json()
+                    if "detail" in error_data and "there is no such login" in error_data["detail"].lower():
+                        return {
+                            "status": "error", 
+                            "message": f"""
+⚠️ Логин не найден, либо регион аккаунта - не СНГ. Пожалуйста, перепроверьте логин и регион.
+
+Если ваш регион не Россия, Украина, Казахстан - отправьте команду «!возврат» без кавычек
+Если вы ошиблись логином то отправьте верный логин Steam (Не ник)
+
+∟ Узнать логин можно по этой ссылке:
+https://telegra.ph/Gde-poluchit-Login-Steam-02-01""",
+                            "allow_refund": True
+                        }
+                    return {"status": "error", "message": f"Ошибка 400: {error_data}"}
                 elif response.status == 403:
                     print("Токен недействителен. Запрашиваем новый...")
                     new_token = await get_new_token()

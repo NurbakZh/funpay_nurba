@@ -102,7 +102,13 @@ class APIError(Exception):
 
 class NoFoundLogin(APIError):
     def __init__(self, login):
-        super().__init__(f"Логин {login} не найден")
+        super().__init__(f"⚠️ Логин не найден, либо регион аккаунта - не СНГ. Пожалуйста, перепроверьте логин и регион.\n\n"+
+
+"Если ваш регион не Россия, Украина, Казахстан - отправьте команду «!возврат» без кавычек\n"+
+"Если вы ошиблись логином то отправьте верный логин Steam (Не ник)\n"+
+
+"∟ Узнать логин можно по этой ссылке:\n"+
+"https://telegra.ph/Gde-poluchit-Login-Steam-02-01")
         self.login = login
 
 
@@ -245,7 +251,7 @@ class API:
 
 NAME = "Auto Steam"
 VERSION = "0.0.4"
-CREDITS = "@arthells"
+CREDITS = "@nurba_zh"
 DESCRIPTION = "Плагин для авто-пополнения Steam"
 UUID = "ddf8b65f-1bc6-4ca2-bb76-6b2d187f6272"
 SETTINGS_PAGE = True
@@ -378,6 +384,10 @@ class _CBT:
     CLEAR_SETTINGS = 'CLEAR_SETTINGS'
     PAYMENT_METHOD_CHANGE = "PAYMENT_METHOD_CHANGE"
     GET_FILES = "GET_FILES"
+    OTPRAVKA = "OTPRAVKA"
+    OTPRAVKA_LOGIN = "OTPRAVKA_LOGIN"
+    OTPRAVKA_CURRENCY = "OTPRAVKA_CURRENCY"
+    OTPRAVKA_AMOUNT = "OTPRAVKA_AMOUNT"
 
     EDIT_LIMITS = 'EDIT_LIMITS'
     HANDLE_NO_BALANCE_ORDERS = 'HANDLE_NO_BALANCE_ORDERS'
@@ -480,6 +490,10 @@ def init(cardinal: 'Cardinal'):
 
     Runner(cardinal).start()
 
+    cardinal.add_telegram_commands(UUID, [
+        ("otpravka", "создать заказ на пополнение Steam", True),
+    ])
+
     def send(chat_id, msg, reply_markup=None, **kwargs):
         return bot.send_message(chat_id, msg, reply_markup=reply_markup, parse_mode="HTML", **kwargs)
 
@@ -489,24 +503,155 @@ def init(cardinal: 'Cardinal'):
     def _edit_msg(m: Message, text, reply_markup=None, **kwargs):
         return bot.edit_message_text(text, m.chat.id, m.message_id, **kwargs, reply_markup=reply_markup)
 
-    def __handle_state_message(chat_id, user_id, state, handler_message, msg_text, state_data={}, reply_markup=None,
-                               cb=None, clear_state_after=True):
-        if state not in TG_STATES:
-            if clear_state_after:
-                def wrapped_handler(m):
-                    handler_message(m)
-                    tg.clear_state(m.chat.id, m.from_user.id, True)
+    def handle_otpravka(m: Message):
+        print("DEBUG: Starting otpravka command")
+        bot.send_message(m.chat.id, "Введите логин Steam:")
+        tg.set_state(m.chat.id, m.message_id, m.from_user.id, "waiting_login", {})
 
-                tg.msg_handler(wrapped_handler, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, state))
-                TG_STATES[state] = wrapped_handler
+    def handle_otpravka_login(m: Message):
+        print(f"DEBUG: Received message for login: {m.text}")
+        if not tg.check_state(m.chat.id, m.from_user.id, "waiting_login"):
+            print("DEBUG: Not in waiting_login state")
+            return
+            
+        login = m.text.strip()
+        print(f"DEBUG: Processing login: {login}")
+        
+        if not re.match(r'^[a-zA-Z0-9_]{3,}$', login):
+            print("DEBUG: Invalid login format")
+            return bot.send_message(m.chat.id, "❌ Неверный формат логина. Используйте только латинские буквы, цифры и подчеркивание.")
+        
+        print("DEBUG: Login valid, showing currency keyboard")
+        kb = K(row_width=1).add(
+            B("KZT", None, f"{_CBT.OTPRAVKA_CURRENCY}:kzt"),
+            B("RUB", None, f"{_CBT.OTPRAVKA_CURRENCY}:rub"),
+            B("UAH", None, f"{_CBT.OTPRAVKA_CURRENCY}:uah")
+        )
+        bot.send_message(m.chat.id, "Выберите валюту:", reply_markup=kb)
+        tg.set_state(m.chat.id, m.message_id, m.from_user.id, "waiting_currency", {"login": login})
+
+    def handle_otpravka_currency(c: CallbackQuery):
+        print(f"DEBUG: Received currency callback: {c.data}")
+        if not tg.check_state(c.message.chat.id, c.from_user.id, "waiting_currency"):
+            print("DEBUG: Not in waiting_currency state")
+            return
+            
+        currency = c.data.split(":")[-1]
+        print(f"DEBUG: Selected currency: {currency}")
+        
+        state = tg.get_state(c.message.chat.id, c.from_user.id)
+        if not state or "login" not in state["data"]:
+            print("DEBUG: No login found in state")
+            return bot.send_message(c.message.chat.id, "❌ Ошибка: данные не найдены. Начните заново.")
+        
+        state_data = state["data"]
+        state_data["currency"] = currency
+        tg.set_state(c.message.chat.id, c.message.message_id, c.from_user.id, "waiting_amount", state_data)
+        
+        print("DEBUG: Asking for amount")
+        bot.edit_message_text("Введите сумму пополнения:", c.message.chat.id, c.message.message_id)
+
+    def handle_otpravka_amount(m: Message):
+        print(f"DEBUG: Received amount message: {m.text}")
+        try:
+            state = states.get(m.from_user.username)
+            if not state or state["state"] != "wait_amount":
+                print(f"DEBUG: Invalid state for user {m.from_user.username}")
+                return
+            
+            login = state["data"]["login"]
+            currency = state["data"]["currency"]
+            amount = float(m.text.replace(',', '.'))
+            
+            print(f"DEBUG: Processing order - Login: {login}, Currency: {currency}, Amount: {amount}")
+            
+            # Convert amount to USD if needed
+            if currency.upper() != "USD":
+                exchange_rate = api.course(currency, "USD")
+                if exchange_rate:
+                    amount_usd = round(amount / exchange_rate, 2)
+                    print(f"DEBUG: Converted {amount} {currency} to {amount_usd} USD")
+                else:
+                    print(f"DEBUG: Failed to get exchange rate for {currency} -> USD")
+                    bot.send_message(m.chat.id, "❌ Ошибка при получении курса валюты. Попробуйте позже.")
+                    return
             else:
-                tg.msg_handler(handler_message, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, state))
-                TG_STATES[state] = handler_message
-        result = bot.send_message(chat_id, msg_text,
-                                  reply_markup=reply_markup or K().add(B("🚫 Отменить", None, CBT.CLEAR_STATE)))
-        tg.set_state(chat_id, result.message_id, user_id, state, state_data)
-        if cb:
-            bot.answer_callback_query(cb.id)
+                amount_usd = amount
+            
+            # Apply markup
+            amount_with_markup = amount_usd + (amount_usd * (SETTINGS.obschet / 100))
+            print(f"DEBUG: Amount with markup: {amount_with_markup} USD")
+            
+            # Try to perform the top-up
+            try:
+                operation = api.steam_dep(login, amount_with_markup)
+                print(f"DEBUG: Top-up successful - Operation: {operation}")
+                
+                # Create order record with CLOSED status
+                order = Order(
+                    id=f"TG_{int(time.time())}",
+                    chat=m.chat.id,
+                    buyer=m.from_user.username or str(m.from_user.id),
+                    amount=amount,
+                    login=login,
+                    status=Os.CLOSED,
+                    currency=currency
+                )
+                orders.add(order)
+                
+                # Send success message
+                success_msg = f"✅ Средства успешно отправлены!\n\n"
+                success_msg += f"∟ Логин Steam: {login}\n"
+                success_msg += f"∟ Сумма пополнения: {amount} {currency}\n\n"
+                success_msg += f"❤️ Спасибо за покупку!"
+                bot.send_message(m.chat.id, success_msg)
+                
+                # Clear state
+                states.clear(m.from_user.username)
+                
+            except NoFoundLogin as e:
+                print(f"DEBUG: Login not found: {str(e)}")
+                # Create order record with ERROR status to allow refund
+                order = Order(
+                    id=f"TG_{int(time.time())}",
+                    chat=m.chat.id,
+                    buyer=m.from_user.username or str(m.from_user.id),
+                    amount=amount,
+                    login=login,
+                    status=Os.ERROR,
+                    currency=currency
+                )
+                orders.add(order)
+                error_msg = Texts.login_not_found(login)
+                print(f"DEBUG: Sending error message: {error_msg}")
+                bot.send_message(m.chat.id, error_msg)
+                
+            except NoBalance as e:
+                print(f"DEBUG: Not enough balance: {str(e)}")
+                error_msg = Texts.no_balance()
+                print(f"DEBUG: Sending error message: {error_msg}")
+                bot.send_message(m.chat.id, error_msg)
+                tg_logs.no_balance(amount, login, currency, m.chat.id, f"TG_{int(time.time())}")
+                
+            except APIError as ex:
+                print(f"DEBUG: API Error: {ex.message}")
+                logger.error(f"Ошибка при пополнении Steam. Ответ сервера: {ex.message}")
+                logger.debug("TRACEBACK", exc_info=True)
+                error_msg = Texts.error()
+                print(f"DEBUG: Sending error message: {error_msg}")
+                bot.send_message(m.chat.id, error_msg)
+                tg_logs.error(amount, currency, f"TG_{int(time.time())}", m.chat.id, f"Ответ сервера Steam пополнения: {ex.message}")
+                
+        except Exception as e:
+            print(f"DEBUG: Unexpected error: {str(e)}")
+            logger.error(f"Ошибка при обработке команды отправака: {str(e)}")
+            logger.debug("TRACEBACK", exc_info=True)
+            bot.send_message(m.chat.id, "❌ Произошла ошибка при обработке команды. Попробуйте позже.")
+
+    tg.msg_handler(handle_otpravka, commands=['otpravka'])
+    tg.msg_handler(handle_otpravka_login, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, "waiting_login"))
+    tg.cbq_handler(handle_otpravka_currency, lambda c: c.data.startswith(f"{_CBT.OTPRAVKA_CURRENCY}:"))
+    tg.msg_handler(handle_otpravka_amount, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, "waiting_amount"))
 
     def edit_limits(c: CallbackQuery):
         arg = c.data.split(":")[-1]
@@ -665,7 +810,11 @@ class Texts:
         return f"""
 ⚠️ Логин «{login}» не найден, либо регион аккаунта - не СНГ. Пожалуйста, перепроверьте логин и регион.
 
-Если ваш регион не СНГ - отправьте команду «!возврат» без кавычек"""
+Если ваш регион не Россия, Украина, Казахстан - отправьте команду «!возврат» без кавычек
+Если вы ошиблись логином то отправьте верный логин Steam (Не ник)
+
+∟ Узнать логин можно по этой ссылке:
+https://telegra.ph/Gde-poluchit-Login-Steam-02-01"""
 
     @staticmethod
     def no_balance():
@@ -766,16 +915,7 @@ def new_order(c: 'Cardinal', e: NewOrderEvent):
     sub_rum = api.convert(e.order.amount, crrncy, 'rub')
     log(f"Новый заказ на пополнение Steam #{e.order.id}. Покупатель: {e.order.buyer_username}. "
         f"Сумма: {e.order.amount} {crrncy}. Итоговая сумма: {sub_rum} RUB")
-    # if SETTINGS.min > sub_rum or sub_rum > SETTINGS.max:
-    #     if SETTINGS.autoback_bad_amoount:
-    #         c.account.refund(e.order.id)
-    #     c.send_message(e.order.chat_id, f"Недопустимая сумма пополнения\n\n"
-    #                                     f"∟ Минимум: {SETTINGS.min} RUB\n"
-    #                                     f"∟ Максимум: {SETTINGS.max} RUB\n\n"
-    #                                     f"Пожалуйста, оплатите лот на другую сумму")
-    #     if not SETTINGS.autoback_bad_amoount:
-    #         tg_logs.bad_amount(e.order.amount, crrncy, e.order.id, e.order.chat_id)
-    #     return
+    
     order = Order(e.order.id, e.order.chat_id, e.order.buyer_username, e.order.amount, currency=crrncy)
     orders.add(order)
     tg_logs.new_order(order.amount, order.currency, order.id, order.chat, order.buyer)
@@ -799,12 +939,6 @@ def __handle_steam_deposit(c: 'Cardinal', chat_id, username, _not_answer_errors=
         order.edit(status=Os.WAIT_LOGIN)
         states.set(order.buyer, Os.WAIT_LOGIN, {"order_id": order.id})
         return -4
-    except NoBalance:
-        if NoBalance in _not_answer_errors: return -3
-        c.send_message(chat_id, Texts.no_balance())
-        tg_logs.no_balance(order.amount, order.login, order.currency, order.id, order.chat)
-        order.edit(status=Os.NO_MONEY)
-        return -3
     except APIError as ex:
         if APIError in _not_answer_errors: return -2
         logger.error(f"Ошибка при пополнении Steam. Ответ сервера: {ex.message}")
@@ -834,6 +968,10 @@ def _complete_order(c: 'Cardinal', chat_id, username, _order_id=None, _next_orde
     order.edit(status=Os.CLOSED)
     tg_logs.order_completed(order.amount, order.currency, order.login, order.chat, order.id,
                             _is_after_dep_balance=_after_no_money)
+    
+    # Update lots after successful payment
+    update_lots_topup(c, order.currency, order.amount)
+    
     states.clear(order.buyer)
     if _next_order:
         _handle_next_order(c, order.buyer)
@@ -851,21 +989,46 @@ def _handle_send_login_user(c: 'Cardinal', e: NewMessageEvent, _login):
 
 
 def _handle_moneyback_steam(c, e):
-    state = states.get(e.message.author)
-    if not state: return
-    order_id = state['data'].get('order_id')
-    if not order_id: return
-    order = orders.get(order_id)
-    if order.status in (Os.CLOSED, Os.REFUND): return
-    if c.account.get_order(order_id).status in (OrderStatuses.CLOSED, OrderStatuses.REFUNDED):
-        c.send_message(order.chat, f"Заказ #{order.id} уже завершён")
-        states.clear(order.buyer)
-        return
-    c.account.refund(order.id)
-    # c.send_message(order.chat, f"Хорошо, я вернул средства за этот заказ")
-    log(f"Покупатель {order.buyer} запросил возврат заказа #{order.id}. Статус заказа был: {order.status}. Деньги вернул, статс изменил на {Os.REFUND}")
-    order.edit(status=Os.REFUND)
-    _handle_next_order(c, e.message.author)
+    """Обработчик команды !возврат"""
+    try:
+        state = states.get(e.message.author)
+        if not state:
+            print("DEBUG: No state found for user")
+            return
+            
+        order_id = state['data'].get('order_id')
+        if not order_id:
+            print("DEBUG: No order_id found in state")
+            return
+            
+        order = orders.get(order_id)
+        if not order:
+            print(f"DEBUG: No order found with id {order_id}")
+            return
+        
+        # Only allow refund if the order has ERROR status (NoFoundLogin error)
+        if order.status != Os.ERROR:
+            print(f"DEBUG: Order {order_id} status is {order.status}, refund not allowed")
+            c.send_message(order.chat, f"❌ Невозможно выполнить возврат для заказа #{order.id}, так как пополнение уже было выполнено.")
+            return
+            
+        if c.account.get_order(order_id).status in (OrderStatuses.CLOSED, OrderStatuses.REFUNDED):
+            print(f"DEBUG: Order {order_id} is already closed or refunded")
+            c.send_message(order.chat, f"Заказ #{order.id} уже завершён")
+            states.clear(order.buyer)
+            return
+            
+        print(f"DEBUG: Processing refund for order {order_id}")
+        c.account.refund(order.id)
+        log(f"Покупатель {order.buyer} запросил возврат заказа #{order.id}. Статус заказа был: {order.status}. Деньги вернул, статс изменил на {Os.REFUND}")
+        order.edit(status=Os.REFUND)
+        _handle_next_order(c, e.message.author)
+        
+    except Exception as ex:
+        print(f"DEBUG: Error in _handle_moneyback_steam: {str(ex)}")
+        logger.error(f"Ошибка при обработке команды возврата: {str(ex)}")
+        logger.debug("TRACEBACK", exc_info=True)
+        c.send_message(e.message.chat_id, "❌ Произошла ошибка при обработке команды возврата. Попробуйте позже.")
 
 
 def new_msg(c: 'Cardinal', e: NewMessageEvent):
@@ -937,3 +1100,103 @@ BIND_TO_NEW_ORDER = [new_order]
 BIND_TO_NEW_MESSAGE = [new_msg]
 BIND_TO_ORDER_STATUS_CHANGED = [new_order_status_changed]
 BIND_TO_DELETE = None
+
+
+def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
+    """Обновляет лоты пополнения Steam после успешной оплаты"""
+    try:
+        # Получаем текущий баланс в USD
+        current_balance = api.check_balance()
+        if current_balance is None:
+            log("Ошибка: не удалось получить баланс", lvl="error")
+            return
+            
+        log(f"Текущий баланс в USD: {current_balance}")
+        
+        # Получаем актуальные курсы валют
+        rate = api.rate
+        if not rate or not isinstance(rate, dict):
+            log("Ошибка: не удалось получить курсы валют или неверный формат", lvl="error")
+            return
+            
+        log(f"Актуальные курсы: {rate}")
+        
+        # Обновляем лоты для каждой валюты
+        for curr in CURRENCIES:
+            try:
+                # Конвертируем баланс в текущую валюту для количества
+                converted_balance = api.convert(current_balance, "usd", curr)
+                if converted_balance is None:
+                    log(f"Ошибка: не удалось конвертировать баланс в {curr.upper()}", lvl="error")
+                    continue
+                    
+                log(f"Конвертированный баланс в {curr.upper()}: {converted_balance}")
+                
+                # Рассчитываем курс относительно рубля
+                if curr.lower() == "rub":
+                    price = 1.0  # 1 RUB = 1 RUB
+                else:
+                    try:
+                        # Получаем курс через USD, обрабатывая строковые значения
+                        rub_to_usd_str = rate.get('rub/usd')
+                        curr_to_usd_str = rate.get(f'{curr.lower()}/usd')
+                        
+                        if rub_to_usd_str is None or curr_to_usd_str is None:
+                            log(f"Ошибка: отсутствует курс для {curr.upper()}", lvl="error")
+                            continue
+                            
+                        # Преобразуем строки в числа, заменяя запятые на точки
+                        rub_to_usd = float(str(rub_to_usd_str).replace(',', '.'))
+                        curr_to_usd = float(str(curr_to_usd_str).replace(',', '.'))
+                        
+                        if rub_to_usd == 0 or curr_to_usd == 0:
+                            log(f"Ошибка: неверный курс для {curr.upper()}", lvl="error")
+                            continue
+                            
+                        price = rub_to_usd / curr_to_usd  # Цена в рублях за единицу валюты
+                    except (ValueError, AttributeError, TypeError) as e:
+                        log(f"Ошибка при обработке курсов для {curr.upper()}: {str(e)}", lvl="error")
+                        continue
+                
+                # Добавляем накрутку 6%
+                price_with_markup = price * 1.06
+                log(f"Курс {curr.upper()} к RUB: {price} (с накруткой: {price_with_markup})")
+                
+                # Обновляем лот для текущей валюты
+                offer_id = {
+                    "kzt": 42111797,
+                    "rub": 42111224,
+                    "uah": 41456968
+                }.get(curr.lower())
+                
+                if offer_id:
+                    try:
+                        lot_fields = cardinal.account.get_lot_fields(offer_id)
+                        if lot_fields is None:
+                            log(f"Ошибка: не удалось получить поля лота {offer_id}", lvl="error")
+                            continue
+                            
+                        # Форматируем значения перед установкой
+                        formatted_price = str(round(price_with_markup, 2)).replace('.', ',')
+                        formatted_amount = str(int(converted_balance))
+                        
+                        if not hasattr(lot_fields, 'price') or not hasattr(lot_fields, 'amount'):
+                            log(f"Ошибка: лот {offer_id} не имеет необходимых атрибутов", lvl="error")
+                            continue
+                            
+                        lot_fields.price = formatted_price
+                        lot_fields.amount = formatted_amount
+                        
+                        cardinal.account.save_lot(lot_fields)
+                        log(f"Обновлен лот {offer_id} для валюты {curr.upper()}")
+                    except Exception as e:
+                        log(f"Ошибка при обновлении лота {offer_id}: {str(e)}", lvl="error")
+                        logger.error("TRACEBACK", exc_info=True)
+                
+            except Exception as e:
+                log(f"Ошибка при обновлении лота для валюты {curr}: {str(e)}", lvl="error")
+                logger.error("TRACEBACK", exc_info=True)
+                
+    except Exception as e:
+        log(f"Ошибка при обновлении лотов: {str(e)}", lvl="error")
+        logger.error("TRACEBACK", exc_info=True)
