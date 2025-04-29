@@ -613,7 +613,7 @@ def init(cardinal: 'Cardinal'):
             if currency.upper() != "USD":
                 exchange_rate = api.course(currency, "USD")
                 if exchange_rate:
-                    amount_usd = round(amount / exchange_rate, 2)
+                    amount_usd = round(amount * exchange_rate, 2)
                     print(f"DEBUG: Converted {amount} {currency} to {amount_usd} USD")
                 else:
                     print(f"DEBUG: Failed to get exchange rate for {currency} -> USD")
