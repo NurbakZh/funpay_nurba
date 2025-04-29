@@ -597,8 +597,8 @@ def init(cardinal: 'Cardinal'):
     def handle_otpravka_amount(m: Message):
         print(f"DEBUG: Received amount message: {m.text}")
         try:
-            state = states.get(m.from_user.username)
-            if not state or state["state"] != "wait_amount":
+            state = tg.get_state(m.chat.id, m.from_user.id)
+            if not state or state["state"] != "waiting_amount":
                 print(f"DEBUG: Invalid state for user {m.from_user.username}")
                 return
             
