@@ -974,6 +974,13 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
 
                 if result:
                     logger.info(f"Успешно пополнен аккаунт {steam_login} на сумму {amount_requested} {currency}")
+                    try:
+                        from plugins.auto_steam import update_lots_topup
+                        update_lots_topup(c, currency.strip(), amount_to_topup)
+                        logger.info(f"Обновлены лоты после успешного пополнения Steam")
+                    except Exception as exc:
+                        logger.error(f"Ошибка при обновлении лотов: {str(exc)}")
+                        logger.debug("TRACEBACK", exc_info=True)
                     setattr(e, "delivered", True)
                     setattr(e, "delivery_text", success_msg)
                 else:
@@ -1393,6 +1400,13 @@ def handle_new_login(c: Cardinal, e: NewMessageEvent):
             
             if result:
                 logger.info(f"Успешно пополнен аккаунт {login} на сумму {amount_requested} {currency}")
+                try:
+                    from plugins.auto_steam import update_lots_topup
+                    update_lots_topup(c, currency.strip(), amount_to_topup)
+                    logger.info(f"Обновлены лоты после успешного пополнения Steam")
+                except Exception as exc:
+                    logger.error(f"Ошибка при обновлении лотов: {str(exc)}")
+                    logger.debug("TRACEBACK", exc_info=True)
                 # Clear the wait state
                 states.clear(e.message.author)
             else:

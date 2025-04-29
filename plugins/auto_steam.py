@@ -1233,3 +1233,102 @@ def _handle_moneyback_steam(c, e):
         logger.error(f"Ошибка при обработке команды возврата: {str(ex)}")
         logger.debug("TRACEBACK", exc_info=True)
         c.send_message(e.message.chat_id, "❌ Произошла ошибка при обработке команды возврата. Попробуйте позже.")
+
+def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
+     """Обновляет лоты пополнения Steam после успешной оплаты"""
+     try:
+         # Получаем текущий баланс в USD
+         current_balance = api.check_balance()
+         if current_balance is None:
+             log("Ошибка: не удалось получить баланс", lvl="error")
+             return
+             
+         log(f"Текущий баланс в USD: {current_balance}")
+         
+         # Получаем актуальные курсы валют
+         rate = api.rate
+         if not rate or not isinstance(rate, dict):
+             log("Ошибка: не удалось получить курсы валют или неверный формат", lvl="error")
+             return
+             
+         log(f"Актуальные курсы: {rate}")
+         
+         # Обновляем лоты для каждой валюты
+         for curr in CURRENCIES:
+             try:
+                 # Конвертируем баланс в текущую валюту для количества
+                 converted_balance = api.convert(current_balance, "usd", curr)
+                 if converted_balance is None:
+                     log(f"Ошибка: не удалось конвертировать баланс в {curr.upper()}", lvl="error")
+                     continue
+                     
+                 log(f"Конвертированный баланс в {curr.upper()}: {converted_balance}")
+                 
+                 # Рассчитываем курс относительно рубля
+                 if curr.lower() == "rub":
+                     price = 1.0  # 1 RUB = 1 RUB
+                 else:
+                     try:
+                         # Получаем курс через USD, обрабатывая строковые значения
+                         rub_to_usd_str = rate.get('rub/usd')
+                         curr_to_usd_str = rate.get(f'{curr.lower()}/usd')
+                         
+                         if rub_to_usd_str is None or curr_to_usd_str is None:
+                             log(f"Ошибка: отсутствует курс для {curr.upper()}", lvl="error")
+                             continue
+                             
+                         # Преобразуем строки в числа, заменяя запятые на точки
+                         rub_to_usd = float(str(rub_to_usd_str).replace(',', '.'))
+                         curr_to_usd = float(str(curr_to_usd_str).replace(',', '.'))
+                         
+                         if rub_to_usd == 0 or curr_to_usd == 0:
+                             log(f"Ошибка: неверный курс для {curr.upper()}", lvl="error")
+                             continue
+                             
+                         price = rub_to_usd / curr_to_usd  # Цена в рублях за единицу валюты
+                     except (ValueError, AttributeError, TypeError) as e:
+                         log(f"Ошибка при обработке курсов для {curr.upper()}: {str(e)}", lvl="error")
+                         continue
+                 
+                 # Добавляем накрутку 6%
+                 price_with_markup = price * 1.06
+                 log(f"Курс {curr.upper()} к RUB: {price} (с накруткой: {price_with_markup})")
+                 
+                 # Обновляем лот для текущей валюты
+                 offer_id = {
+                     "kzt": 42111797,
+                     "rub": 42111224,
+                     "uah": 41456968
+                 }.get(curr.lower())
+                 
+                 if offer_id:
+                     try:
+                         lot_fields = cardinal.account.get_lot_fields(offer_id)
+                         if lot_fields is None:
+                             log(f"Ошибка: не удалось получить поля лота {offer_id}", lvl="error")
+                             continue
+                             
+                         # Форматируем значения перед установкой
+                         formatted_price = str(round(price_with_markup, 2)).replace('.', ',')
+                         formatted_amount = str(int(converted_balance))
+                         
+                         if not hasattr(lot_fields, 'price') or not hasattr(lot_fields, 'amount'):
+                             log(f"Ошибка: лот {offer_id} не имеет необходимых атрибутов", lvl="error")
+                             continue
+                             
+                         lot_fields.price = formatted_price
+                         lot_fields.amount = formatted_amount
+                         
+                         cardinal.account.save_lot(lot_fields)
+                         log(f"Обновлен лот {offer_id} для валюты {curr.upper()}")
+                     except Exception as e:
+                         log(f"Ошибка при обновлении лота {offer_id}: {str(e)}", lvl="error")
+                         logger.error("TRACEBACK", exc_info=True)
+                 
+             except Exception as e:
+                 log(f"Ошибка при обновлении лота для валюты {curr}: {str(e)}", lvl="error")
+                 logger.error("TRACEBACK", exc_info=True)
+                 
+     except Exception as e:
+         log(f"Ошибка при обновлении лотов: {str(e)}", lvl="error")
+         logger.error("TRACEBACK", exc_info=True)
