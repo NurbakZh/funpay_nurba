@@ -30,7 +30,10 @@ import time
 import re
 from parser_helper import check_for_last, check_for_last_with_account
 import asyncio
-from topup import create_topup_order, pay_topup_order, get_exchange_rate, NoFoundLogin
+from plugins.auto_steam import API, OrderStatus as Os, NoFoundLogin, NoBalance, APIError, states, SETTINGS, Order as OrderAutoSteam, Orders, Texts
+from configs.config import NS_GIFT_LOGIN, NS_GIFT_PASS
+
+orders = Orders()
 
 LAST_STACK_ID = ""
 MSG_LOG_LAST_STACK_ID = ""
@@ -920,87 +923,112 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
     lot_number = 1
     
     if 'Банковская карта (по логину)' in e.order.description:
-        currency = e.order.description.split(',')[0]
-        amount_requested = e.order.description.split(',')[2]
-        steam_login = e.order.description.split(',')[3]
         try:
-            custom_id = str(uuid.uuid4())
+            # Initialize API with credentials from config
+            api = API(login=NS_GIFT_LOGIN, password=NS_GIFT_PASS)
             
+            # Parse order details
+            currency = e.order.description.split(',')[0]
+            amount_requested = e.order.description.split(',')[2]
+            steam_login = e.order.description.split(',')[3]
+            
+            # Convert amount to USD if needed
             amount_to_topup = float(amount_requested.strip().replace(' шт.', '').split(' ')[0])
             if currency.strip().upper() != "USD":
-                exchange_rate = asyncio.run(get_exchange_rate(currency.strip(), "USD", 1.0))
+                exchange_rate = api.course(currency.strip(), "USD")
                 if exchange_rate:
-                    amount_to_topup = round(amount_to_topup / exchange_rate, 2)
+                    amount_to_topup = round(amount_to_topup * exchange_rate, 2)
                     logger.info(f"Конвертация {amount_requested} {currency} в {amount_to_topup} USD по курсу {exchange_rate}")
                 else:
                     logger.error(f"Не удалось получить курс обмена {currency} -> USD")
                     raise Exception(f"Не удалось получить курс обмена {currency} -> USD")
             
-            logger.info(f"Создаем заказ на пополнение {steam_login} на сумму {amount_to_topup} USD")
-            create_result = asyncio.run(create_topup_order(amount_to_topup, steam_login.strip(), custom_id))
+            # Apply markup
+            amount_with_markup = amount_to_topup + (amount_to_topup * (SETTINGS.obschet / 100))
+            logger.info(f"Создаем заказ на пополнение {steam_login} на сумму {amount_with_markup} USD")
             
-            if create_result["status"] != "success":
-                raise Exception(f"Ошибка создания заказа: {create_result.get('message', 'Неизвестная ошибка')}")
-            
-            logger.info(f"Оплачиваем заказ {custom_id}")
-            pay_result = asyncio.run(pay_topup_order(custom_id))
-            
-            if pay_result["status"] != "success":
-                raise Exception(pay_result.get("message", "Неизвестная ошибка"))
-            
-            payment_data = pay_result.get("payment_data", {})
-            order_id = custom_id
-            status = payment_data.get("status", "Неизвестно")
-            
-            # Update lots after successful payment
+            # Try to perform the top-up
             try:
-                from plugins.auto_steam import update_lots_topup
-                update_lots_topup(c, currency.strip(), amount_to_topup)
-                logger.info(f"Обновлены лоты после успешного пополнения Steam")
-            except Exception as exc:
-                logger.error(f"Ошибка при обновлении лотов: {str(exc)}")
-                logger.debug("TRACEBACK", exc_info=True)
-            
-            success_message = f"💸 Средства успешно отправлены!\n\n"
-            success_message += f"∟ Логин Steam: {steam_login}\n"
-            success_message += f"∟ Сумма пополнения: {amount_requested} {currency}\n\n"
-            success_message += f"✅ Подтвердите заказ по этой ссылке:\nhttps://funpay.com/orders/{e.order.id}/\n\n"
-            success_message += f"❤️Пожалуйста, оставьте свой отзыв"
-            result = c.send_message(chat_id, success_message, e.order.buyer_username)
-
-            if result:
-                logger.info(f"Успешно пополнен аккаунт {steam_login} на сумму {amount_requested} {currency}")
+                operation = api.steam_dep(steam_login.strip(), amount_with_markup)
+                logger.info(f"Пополнение успешно выполнено - Operation: {operation}")
                 
-                setattr(e, "delivered", True)
-                setattr(e, "delivery_text", success_message)
-            else:
-                logger.error(f"Не удалось отправить сообщение о пополнении для заказа {e.order.id}")
-                raise Exception("Не удалось отправить сообщение пользователю")
+                # Create order record with CLOSED status
+                order = OrderAutoSteam(
+                    id=f"TG_{int(time.time())}",
+                    chat=chat_id,
+                    buyer=e.order.buyer_username,
+                    amount=amount_to_topup,
+                    login=steam_login,
+                    status=Os.CLOSED,
+                    currency=currency
+                )
+                orders.add(order)
+                
+                # Send success message
+                success_msg = f"💸 Средства успешно отправлены!\n\n"
+                success_msg += f"∟ Логин Steam: {steam_login}\n"
+                success_msg += f"∟ Сумма пополнения: {amount_requested} {currency}\n\n"
+                success_msg += f"✅ Подтвердите заказ по этой ссылке:\nhttps://funpay.com/orders/{e.order.id}/\n\n"
+                success_msg += f"❤️Пожалуйста, оставьте свой отзыв"
+                result = c.send_message(chat_id, success_msg, e.order.buyer_username)
+
+                if result:
+                    logger.info(f"Успешно пополнен аккаунт {steam_login} на сумму {amount_requested} {currency}")
+                    setattr(e, "delivered", True)
+                    setattr(e, "delivery_text", success_msg)
+                else:
+                    logger.error(f"Не удалось отправить сообщение о пополнении для заказа {e.order.id}")
+                    raise Exception("Не удалось отправить сообщение пользователю")
+                
+            except NoFoundLogin as ex:
+                logger.error(f"Логин не найден: {str(ex)}")
+                # Create order record with ERROR status to allow refund
+                order = OrderAutoSteam(
+                    id=f"TG_{int(time.time())}",
+                    chat=chat_id,
+                    buyer=e.order.buyer_username,
+                    amount=amount_to_topup,
+                    login=steam_login,
+                    status=Os.ERROR,
+                    currency=currency
+                )
+                orders.add(order)
+                
+                # Send message asking for new login
+                error_msg = Texts.login_not_found(steam_login)
+                logger.error(f"Отправка сообщения об ошибке: {error_msg}")
+                c.send_message(chat_id, error_msg, e.order.buyer_username)
+                
+                states.set(e.order.buyer_username, "WAIT_LOGIN", {
+                    "order_id": e.order.id,
+                    "amount": amount_to_topup,
+                    "currency": currency,
+                    "amount_requested": amount_requested,
+                    "steam_login": steam_login
+                })
+                
+            except NoBalance as ex:
+                logger.error(f"Недостаточно баланса: {str(ex)}")
+                error_msg = Texts.no_balance()
+                logger.error(f"Отправка сообщения об ошибке: {error_msg}")
+                c.send_message(chat_id, error_msg, e.order.buyer_username)
+                tg_logs.no_balance(amount_to_topup, steam_login, currency, chat_id, f"TG_{int(time.time())}")
+                
+            except APIError as ex:
+                logger.error(f"Ошибка API: {ex.message}")
+                logger.error(f"Ошибка при пополнении Steam. Ответ сервера: {ex.message}")
+                logger.debug("TRACEBACK", exc_info=True)
+                error_msg = Texts.error()
+                logger.error(f"Отправка сообщения об ошибке: {error_msg}")
+                c.send_message(chat_id, error_msg, e.order.buyer_username)
+                tg_logs.error(amount_to_topup, currency, f"TG_{int(time.time())}", chat_id, f"Ответ сервера Steam пополнения: {ex.message}")
                 
         except Exception as exc:
             error_message = str(exc)
-            if isinstance(exc, NoFoundLogin) or "there is no such login" in error_message.lower():
-                # Handle login not found case
-                from plugins.auto_steam import OrderStatus as Os
-                order = c.account.get_order(e.order.id)
-                if order:
-                    order.status = Os.ERROR
-                error_message = f"""
-⚠️ Логин не найден, либо регион аккаунта - не СНГ. Пожалуйста, перепроверьте логин и регион.
-
-Если ваш регион не Россия, Украина, Казахстан - отправьте команду «!возврат» без кавычек
-Если вы ошиблись логином то отправьте верный логин Steam (Не ник)
-
-∟ Узнать логин можно по этой ссылке:
-https://telegra.ph/Gde-poluchit-Login-Steam-02-01"""
-            
-            logger.error(
-                f"Произошла ошибка при пополнении аккаунта для заказа $YELLOW{e.order.id}: {error_message}$RESET")
+            logger.error(f"Произошла ошибка при пополнении аккаунта для заказа {e.order.id}: {error_message}")
             logger.debug("TRACEBACK", exc_info=True)
             setattr(e, "error", 1)
-            setattr(e, "error_text",
-                    f"Произошла ошибка при пополнении аккаунта для заказа {e.order.id}: {error_message}")
-            
+            setattr(e, "error_text", f"Произошла ошибка при пополнении аккаунта для заказа {e.order.id}: {error_message}")
             c.send_message(chat_id, error_message, e.order.buyer_username)
             return
     else:
@@ -1014,23 +1042,21 @@ https://telegra.ph/Gde-poluchit-Login-Steam-02-01"""
                 products, goods_left = cardinal_tools.get_products(f"storage/products/{file_name}", amount)
                 delivery_text = delivery_text.replace("$product", "\n".join(products).replace("\\n", "\n"))
         except Exception as exc:
-            logger.error(
-                f"Произошла ошибка при получении товаров для заказа $YELLOW{e.order.id}: {str(exc)}$RESET")  # locale
+            logger.error(f"Произошла ошибка при получении товаров для заказа {e.order.id}: {str(exc)}")
             logger.debug("TRACEBACK", exc_info=True)
             setattr(e, "error", 1)
-            setattr(e, "error_text",
-                    f"Произошла ошибка при получении товаров для заказа {e.order.id}: {str(exc)}")  # locale
+            setattr(e, "error_text", f"Произошла ошибка при получении товаров для заказа {e.order.id}: {str(exc)}")
             return
 
         result = c.send_message(chat_id, delivery_text, e.order.buyer_username)
         if not result:
-            logger.error(f"Не удалось отправить товар для ордера $YELLOW{e.order.id}$RESET.")  # locale
+            logger.error(f"Не удалось отправить товар для ордера {e.order.id}.")
             setattr(e, "error", 1)
-            setattr(e, "error_text", f"Не удалось отправить сообщение с товаром для заказа {e.order.id}.")  # locale
+            setattr(e, "error_text", f"Не удалось отправить сообщение с товаром для заказа {e.order.id}.")
             if file_name and products:
                 cardinal_tools.add_products(f"storage/products/{file_name}", products, at_zero_position=True)
         else:
-            logger.info(f"Товар для заказа {e.order.id} выдан.")  # locale
+            logger.info(f"Товар для заказа {e.order.id} выдан.")
             setattr(e, "delivered", True)
             setattr(e, "delivery_text", delivery_text)
             setattr(e, "goods_delivered", amount)
@@ -1249,6 +1275,160 @@ def send_bot_started_notification_handler(c: Cardinal, *args):
             continue
 
 
+def handle_new_login(c: Cardinal, e: NewMessageEvent):
+    """Handle new login attempts after NoFoundLogin error"""
+    if e.message.author == c.account.username:
+        return
+        
+    # Check if user is in WAIT_LOGIN state
+    state = states.get(e.message.author)
+    if not state or state.get('state') != 'WAIT_LOGIN':
+        return
+        
+    # Extract message text
+    message_text = e.message.text.strip()
+
+    # Handle refund request
+    if message_text.lower() == "!возврат":
+        try:
+            # Get order details from state
+            order_id = state['data'].get('order_id')
+            amount_to_topup = state['data'].get('amount')
+            currency = state['data'].get('currency')
+            steam_login = state['data'].get('steam_login')
+            
+            if not all([order_id, amount_to_topup, currency]):
+                logger.error(f"Missing required data in state for refund: order_id={order_id}, amount={amount_to_topup}, currency={currency}")
+                c.send_message(e.message.chat_id, "Произошла ошибка при обработке запроса на возврат. Пожалуйста, обратитесь к администратору.", e.message.author)
+                states.clear(e.message.author)
+                return
+            
+            # Create refund order record
+            order = OrderAutoSteam(
+                id=f"TG_{int(time.time())}",
+                chat=e.message.chat_id,
+                buyer=e.message.author,
+                amount=amount_to_topup,
+                login=steam_login,
+                status=Os.REFUND,
+                currency=currency
+            )
+            orders.add(order)
+            
+            # Send refund confirmation message
+            refund_msg = f"🔄 Выполнен возврат средств\n\n"
+            refund_msg += f"∟ Сумма возврата: {amount_to_topup} {currency}\n"
+            refund_msg += f"∟ ID заказа: {order_id}\n\n"
+            result = c.send_message(e.message.chat_id, refund_msg, e.message.author)
+            
+            
+            if result:
+                logger.info(f"Запрошен возврат средств для заказа {order_id}")
+                # Call _handle_moneyback_steam to process the refund
+                from plugins.auto_steam import _handle_moneyback_steam
+                _handle_moneyback_steam(c, e)
+                # Clear the wait state
+                states.clear(e.message.author)
+            else:
+                logger.error(f"Не удалось отправить сообщение о возврате для заказа {order_id}")
+                raise Exception("Не удалось отправить сообщение пользователю")
+                
+        except Exception as exc:
+            logger.error(f"Произошла ошибка при обработке запроса на возврат для заказа {order_id}: {str(exc)}")
+            logger.debug("TRACEBACK", exc_info=True)
+            # Don't send error details to user, just a generic message
+            c.send_message(e.message.chat_id, "Произошла ошибка при обработке запроса на возврат. Пожалуйста, попробуйте позже.", e.message.author)
+            states.clear(e.message.author)
+        return
+        
+    # Handle new login attempt
+    login = message_text
+    if not login:
+        return
+        
+    # Get order details from state
+    order_id = state['data'].get('order_id')
+    amount_to_topup = state['data'].get('amount')
+    currency = state['data'].get('currency')
+    amount_requested = state['data'].get('amount_requested')
+    
+    if not all([order_id, amount_to_topup, currency, amount_requested]):
+        logger.error(f"Missing required data in state for login attempt: order_id={order_id}, amount={amount_to_topup}, currency={currency}, amount_requested={amount_requested}")
+        c.send_message(e.message.chat_id, "Произошла ошибка при обработке запроса. Пожалуйста, обратитесь к администратору.", e.message.author)
+        states.clear(e.message.author)
+        return
+    
+    try:
+        # Initialize API with credentials from config
+        api = API(login=NS_GIFT_LOGIN, password=NS_GIFT_PASS)
+        
+        # Apply markup
+        amount_with_markup = amount_to_topup + (amount_to_topup * (SETTINGS.obschet / 100))
+        logger.info(f"Повторная попытка пополнения с новым логином {login} на сумму {amount_with_markup} USD")
+        
+        # Try to perform the top-up with new login
+        try:
+            operation = api.steam_dep(login, amount_with_markup)
+            logger.info(f"Пополнение успешно выполнено - Operation: {operation}")
+            
+            # Update order record with new login and CLOSED status
+            order = OrderAutoSteam(
+                id=f"TG_{int(time.time())}",
+                chat=e.message.chat_id,
+                buyer=e.message.author,
+                amount=amount_to_topup,
+                login=login,
+                status=Os.CLOSED,
+                currency=currency
+            )
+            orders.add(order)
+            
+            # Send success message
+            success_msg = f"💸 Средства успешно отправлены!\n\n"
+            success_msg += f"∟ Логин Steam: {login}\n"
+            success_msg += f"∟ Сумма пополнения: {amount_requested} {currency}\n\n"
+            success_msg += f"✅ Подтвердите заказ по этой ссылке:\nhttps://funpay.com/orders/{order_id}/\n\n"
+            success_msg += f"❤️Пожалуйста, оставьте свой отзыв"
+            result = c.send_message(e.message.chat_id, success_msg, e.message.author)
+            
+            if result:
+                logger.info(f"Успешно пополнен аккаунт {login} на сумму {amount_requested} {currency}")
+                # Clear the wait state
+                states.clear(e.message.author)
+            else:
+                logger.error(f"Не удалось отправить сообщение о пополнении для заказа {order_id}")
+                raise Exception("Не удалось отправить сообщение пользователю")
+                
+        except NoFoundLogin as ex:
+            logger.error(f"Новый логин {login} также не найден: {str(ex)}")
+            error_msg = Texts.login_not_found(login)
+            c.send_message(e.message.chat_id, error_msg, e.message.author)
+            # Keep the WAIT_LOGIN state for another attempt
+            
+        except NoBalance as ex:
+            logger.error(f"Недостаточно баланса: {str(ex)}")
+            error_msg = Texts.no_balance()
+            c.send_message(e.message.chat_id, error_msg, e.message.author)
+            tg_logs.no_balance(amount_to_topup, login, currency, e.message.chat_id, order_id)
+            states.clear(e.message.author)
+            
+        except APIError as ex:
+            logger.error(f"Ошибка API: {ex.message}")
+            logger.error(f"Ошибка при пополнении Steam. Ответ сервера: {ex.message}")
+            logger.debug("TRACEBACK", exc_info=True)
+            error_msg = Texts.error()
+            c.send_message(e.message.chat_id, error_msg, e.message.author)
+            tg_logs.error(amount_to_topup, currency, order_id, e.message.chat_id, f"Ответ сервера Steam пополнения: {ex.message}")
+            states.clear(e.message.author)
+            
+    except Exception as exc:
+        logger.error(f"Произошла ошибка при повторной попытке пополнения для заказа {order_id}: {str(exc)}")
+        logger.debug("TRACEBACK", exc_info=True)
+        # Don't send error details to user, just a generic message
+        c.send_message(e.message.chat_id, "Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже.", e.message.author)
+        states.clear(e.message.author)
+
+
 BIND_TO_INIT_MESSAGE = [save_init_chats_handler]
 
 BIND_TO_LAST_CHAT_MESSAGE_CHANGED = [old_log_msg_handler,
@@ -1267,7 +1447,8 @@ BIND_TO_NEW_MESSAGE = [log_msg_handler,
                        process_review_handler,
                        send_new_msg_notification_handler,
                        send_command_notification_handler,
-                       test_auto_delivery_handler]
+                       test_auto_delivery_handler,
+                       handle_new_login]
 
 BIND_TO_POST_LOTS_RAISE = [send_categories_raised_notification_handler]
 

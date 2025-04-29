@@ -6,18 +6,15 @@ from typing import Optional
 import aiohttp
 from configs.config import BASE_URL, NS_GIFT_LOGIN, NS_GIFT_PASS
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
+# Настройка логирования для этого модуля
+logger = logging.getLogger("FPC.Token")
 
 # Функция чтения токена из файла
 def read_token_from_file() -> Optional[dict]:
     """Считывает токен из файла token.json и проверяет его валидность по valid_thru."""
     file_path = Path("token.json")
     if not file_path.exists():
-        logging.warning("Файл token.json не найден.")
+        logger.warning("Файл token.json не найден.")
         return None
 
     try:
@@ -25,16 +22,16 @@ def read_token_from_file() -> Optional[dict]:
             data = json.load(file)
         valid_thru = data.get("valid_thru")
         if valid_thru is None:
-            logging.warning("Поле 'valid_thru' отсутствует в token.json.")
+            logger.warning("Поле 'valid_thru' отсутствует в token.json.")
             return None
 
         current_time = datetime.now().timestamp()
         if current_time > valid_thru:
-            logging.info("Токен просрочен.")
+            logger.info("Токен просрочен.")
             return None
         return data
     except Exception as e:
-        logging.error(f"Ошибка при чтении token.json: {e}")
+        logger.error(f"Ошибка при чтении token.json: {e}")
         return None
 
 # Функция сохранения токена в файл
@@ -43,9 +40,9 @@ def save_token_to_file(token_data: dict):
     try:
         with open("token.json", 'w', encoding='utf-8') as file:
             json.dump(token_data, file, ensure_ascii=False, indent=2)
-        logging.info("Токен успешно сохранен в token.json.")
+        logger.info("Токен успешно сохранен в token.json.")
     except Exception as e:
-        logging.error(f"Ошибка при сохранении token.json: {e}")
+        logger.error(f"Ошибка при сохранении token.json: {e}")
 
 # Модифицированная функция получения нового токена
 async def get_new_token() -> Optional[str]:
@@ -55,7 +52,7 @@ async def get_new_token() -> Optional[str]:
         "email": NS_GIFT_LOGIN,
         "password": NS_GIFT_PASS
     }
-    logging.info(f"Запрос нового токена: URL={url}, payload={payload}")
+    logger.info(f"Запрос нового токена: URL={url}, payload={payload}")
 
     async with aiohttp.ClientSession() as session:
         try:
@@ -65,12 +62,12 @@ async def get_new_token() -> Optional[str]:
                     # Сохраняем полный объект токена в файл
                     save_token_to_file(data)
                     new_token = data.get("access_token")
-                    logging.info(f"Новый токен получен: {new_token}")
+                    logger.info(f"Новый токен получен: {new_token}")
                     return new_token
                 else:
                     error_message = await response.text()
-                    logging.error(f"Ошибка при запросе токена: статус {response.status}, сообщение: {error_message}")
+                    logger.error(f"Ошибка при запросе токена: статус {response.status}, сообщение: {error_message}")
                     return None
         except aiohttp.ClientError as e:
-            logging.error(f"Ошибка соединения при получении токена: {e}")
+            logger.error(f"Ошибка соединения при получении токена: {e}")
             return None

@@ -7,8 +7,11 @@ import os.path
 import random
 import re
 import traceback
+import aiohttp
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING, Union, Dict, Any
+from configs.config import NS_GIFT_LOGIN, NS_GIFT_PASS
+from pathlib import Path
 
 from pip._internal.cli.main import main
 from requests.cookies import RequestsCookieJar
@@ -50,13 +53,6 @@ CURRENCIES = ("kzt", "rub", "uah")
 
 def log(msg, lvl: str = "info", **kwargs):
     return getattr(logger, lvl)(f"{LOGGER_PREFIX} {msg}", **kwargs)
-
-
-class OrderStatus:
-    CLOSED = "closed"
-    NO_BALANCE = "no_balance"
-    PENDING = "pending"
-    REFUND = "refund"
 
 
 class NsGiftsOrder(BaseModel):
@@ -127,6 +123,8 @@ class API:
         self.cookies = {}
         self._rate = None
         self._lastRateUpdate = None
+        self._currency_rates = None
+        self._last_currency_update = None
 
     @property
     def token(self):
@@ -150,6 +148,55 @@ class API:
         except:
             logger.error(f"Ошибка при сравнении сумма баланса и суммы заказа: {self.balance} <= {sum}")
             return True
+
+    async def get_exchange_rate(self, from_currency: str, to_currency: str, modifier: float = 1.0) -> Optional[float]:
+        """Получает курс обмена с учетом модификатора."""
+        if from_currency.upper() == to_currency.upper():
+            return 1.0
+
+        if not self._currency_rates or (time.time() - self._last_currency_update) > 3600:
+            await self.update_currency_rates()
+
+        if not self._currency_rates:
+            return None
+
+        try:
+            from_currency = from_currency.lower()
+            to_currency = to_currency.lower()
+
+            direct_key = f"{from_currency}/{to_currency}"
+            if direct_key in self._currency_rates:
+                return float(self._currency_rates[direct_key]) * modifier
+
+            reverse_key = f"{to_currency}/{from_currency}"
+            if reverse_key in self._currency_rates:
+                return (1 / float(self._currency_rates[reverse_key])) * modifier
+
+            from_usd_key = f"{from_currency}/usd"
+            to_usd_key = f"{to_currency}/usd"
+
+            from_usd = self._currency_rates.get(from_usd_key)
+            to_usd = self._currency_rates.get(to_usd_key)
+
+            if from_usd is not None and to_usd is not None:
+                return (float(to_usd) / float(from_usd)) * modifier
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Ошибка при обработке курсов: {e}")
+            return None
+
+    async def update_currency_rates(self) -> Optional[Dict[str, Any]]:
+        """Обновляет курсы валют через API."""
+        try:
+            response = await self._request("steam/get_currency_rate")
+            self._currency_rates = response
+            self._last_currency_update = time.time()
+            return response
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении курсов валют: {e}")
+            return None
 
     def _request(self, endpoint: str, payload: dict = None, method="post", no_auth=False, attempts=3, **kwargs) -> \
         Union[dict, int, float]:
@@ -321,13 +368,12 @@ class Settings(BaseModel):
 
 class OrderStatus:
     CLOSED = 'CLOSED'
-    REFUND = 'REFUND'
     PENDING = 'PENDING'
     WAIT_LOGIN = 'WAIT_LOGIN'
     WAIT_ACCEPT = 'WAIT_ACCEPT'
     ERROR = 'ERROR'
     NO_MONEY = 'NO_MONEY'
-
+    REFUND = 'REFUND'
 
 Os = OrderStatus
 
@@ -388,11 +434,9 @@ class _CBT:
     OTPRAVKA_LOGIN = "OTPRAVKA_LOGIN"
     OTPRAVKA_CURRENCY = "OTPRAVKA_CURRENCY"
     OTPRAVKA_AMOUNT = "OTPRAVKA_AMOUNT"
-
     EDIT_LIMITS = 'EDIT_LIMITS'
     HANDLE_NO_BALANCE_ORDERS = 'HANDLE_NO_BALANCE_ORDERS'
     EDIT_OBS = 'EDIT_OBS'
-
 
 
 def _is_on(var): return "🟢" if var else "🔴"
@@ -413,7 +457,6 @@ def main_kb():
     kb.row(B(f"{_is_on(SETTINGS.autoback_bad_curr)} Авто-возврат если не валюта не СНГ",
              None, f"{_CBT.TOGGLE_SETTINGS_PARAM}:autoback_bad_curr"))
     kb.row(B(f"Кидать {'больше' if SETTINGS.obschet >= 0 else 'меньше'} на {SETTINGS.obschet}%", None, _CBT.EDIT_OBS))
-    # kb.row(B("♻️ Обработать заказы, на которые нет денег", None, _CBT.HANDLE_NO_BALANCE_ORDERS))
     kb.row(B(f"🗑 Сбросить", None, _CBT.CLEAR_SETTINGS),
            B("📁 Файлы", None, f"{_CBT.GET_FILES}:all")) \
         .row(B("◀️ Назад", None, f"{CBT.EDIT_PLUGIN}:{UUID}:0"))
@@ -561,6 +604,7 @@ def init(cardinal: 'Cardinal'):
             
             login = state["data"]["login"]
             currency = state["data"]["currency"]
+            print(m.text, "m.text")
             amount = float(m.text.replace(',', '.'))
             
             print(f"DEBUG: Processing order - Login: {login}, Currency: {currency}, Amount: {amount}")
@@ -708,7 +752,7 @@ def init(cardinal: 'Cardinal'):
         SETTINGS.toggle(c.data.split(":")[-1])
         _edit_msg(c.message, main_text(), reply_markup=main_kb())
 
-    cfg = {"login": "agure4ek", "password": "ESXK8nKpus"}
+    cfg = {"login": NS_GIFT_LOGIN, "password": NS_GIFT_PASS}
     api = API(**cfg)
 
     def clear_settings(c: CallbackQuery):
@@ -808,11 +852,10 @@ class Texts:
     @staticmethod
     def login_not_found(login):
         return f"""
-⚠️ Логин «{login}» не найден, либо регион аккаунта - не СНГ. Пожалуйста, перепроверьте логин и регион.
+⚠️ Логин не найден, либо регион аккаунта - не Россия, Украина, Казахстан. Пожалуйста, перепроверьте логин и регион.
+Если ваш регион не совпадает - отправьте команду «!возврат» без кавычек
 
-Если ваш регион не Россия, Украина, Казахстан - отправьте команду «!возврат» без кавычек
-Если вы ошиблись логином то отправьте верный логин Steam (Не ник)
-
+∟ Если вы ошиблись логином то отправьте верный логин Steam (Не ник)
 ∟ Узнать логин можно по этой ссылке:
 https://telegra.ph/Gde-poluchit-Login-Steam-02-01"""
 
@@ -977,69 +1020,17 @@ def _complete_order(c: 'Cardinal', chat_id, username, _order_id=None, _next_orde
         _handle_next_order(c, order.buyer)
 
 
-def _handle_accept_order(c: 'Cardinal', e: NewMessageEvent):
-    _complete_order(c, e.message.chat_id, e.message.author)
-
-
-def _handle_send_login_user(c: 'Cardinal', e: NewMessageEvent, _login):
-    order_id = states.get(e.message.author)['data']['order_id']
-    order = orders.get(order_id)
-    order.edit(login=_login, status=Os.WAIT_ACCEPT)
-    states.set(order.buyer, order.status, {"order_id": order.id})
-
-
-def _handle_moneyback_steam(c, e):
-    """Обработчик команды !возврат"""
-    try:
-        state = states.get(e.message.author)
-        if not state:
-            print("DEBUG: No state found for user")
-            return
-            
-        order_id = state['data'].get('order_id')
-        if not order_id:
-            print("DEBUG: No order_id found in state")
-            return
-            
-        order = orders.get(order_id)
-        if not order:
-            print(f"DEBUG: No order found with id {order_id}")
-            return
-        
-        # Only allow refund if the order has ERROR status (NoFoundLogin error)
-        if order.status != Os.ERROR:
-            print(f"DEBUG: Order {order_id} status is {order.status}, refund not allowed")
-            c.send_message(order.chat, f"❌ Невозможно выполнить возврат для заказа #{order.id}, так как пополнение уже было выполнено.")
-            return
-            
-        if c.account.get_order(order_id).status in (OrderStatuses.CLOSED, OrderStatuses.REFUNDED):
-            print(f"DEBUG: Order {order_id} is already closed or refunded")
-            c.send_message(order.chat, f"Заказ #{order.id} уже завершён")
-            states.clear(order.buyer)
-            return
-            
-        print(f"DEBUG: Processing refund for order {order_id}")
-        c.account.refund(order.id)
-        log(f"Покупатель {order.buyer} запросил возврат заказа #{order.id}. Статус заказа был: {order.status}. Деньги вернул, статс изменил на {Os.REFUND}")
-        order.edit(status=Os.REFUND)
-        _handle_next_order(c, e.message.author)
-        
-    except Exception as ex:
-        print(f"DEBUG: Error in _handle_moneyback_steam: {str(ex)}")
-        logger.error(f"Ошибка при обработке команды возврата: {str(ex)}")
-        logger.debug("TRACEBACK", exc_info=True)
-        c.send_message(e.message.chat_id, "❌ Произошла ошибка при обработке команды возврата. Попробуйте позже.")
-
-
 def new_msg(c: 'Cardinal', e: NewMessageEvent):
     if e.message.author == c.account.username: return
+    
+    # Handle other states
     if e.message.text.strip() == "+" and states.check(e.message.author, FpSt.WAIT_ACCEPT):
         return _handle_accept_order(c, e)
-    if states.check(e.message.author, (FpSt.LWAIT_LOGIN, FpSt.WAIT_ACCEPT)) and (
-    _login := __find_login(e.message.text)):
-        return _handle_send_login_user(c, e, _login)
-    if e.message.text == "!возврат":
-        return _handle_moneyback_steam(c, e)
+        
+    if states.check(e.message.author, (FpSt.LWAIT_LOGIN, FpSt.WAIT_ACCEPT)):
+        login = __find_login(e.message.text)
+        if login:
+            return _handle_send_login_user(c, e, login)
 
 
 # =============== обработка возврата ================= #
@@ -1048,8 +1039,8 @@ def new_order_status_changed(c: 'Cardinal', e: OrderStatusChangedEvent):
     if not orders.all(buyer=e.order.buyer_username): return
     if e.order.status not in (OrderStatuses.CLOSED, OrderStatuses.REFUNDED): return
     order = orders.get(e.order.id)
-    if not order or order.status in (Os.CLOSED, Os.REFUND): return
-    new_status = Os.CLOSED if e.order.status == OrderStatuses.CLOSED else Os.REFUND
+    if not order or order.status in (Os.CLOSED, Os.WAIT_LOGIN): return
+    new_status = Os.CLOSED if e.order.status == OrderStatuses.CLOSED else Os.WAIT_LOGIN
     order.edit(status=new_status)
     log(f"Заказ {e.order.id} {'подтвержден' if new_status == Os.CLOSED else 'возвращен'}. Изменил его статус на {new_status}")
 
@@ -1145,6 +1136,7 @@ def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
                             log(f"Ошибка: отсутствует курс для {curr.upper()}", lvl="error")
                             continue
                             
+                        print(rub_to_usd_str, curr_to_usd_str, "rub_to_usd_str, curr_to_usd_str")
                         # Преобразуем строки в числа, заменяя запятые на точки
                         rub_to_usd = float(str(rub_to_usd_str).replace(',', '.'))
                         curr_to_usd = float(str(curr_to_usd_str).replace(',', '.'))
@@ -1176,6 +1168,7 @@ def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
                             log(f"Ошибка: не удалось получить поля лота {offer_id}", lvl="error")
                             continue
                             
+                        print(price_with_markup, "price_with_markup")
                         # Форматируем значения перед установкой
                         formatted_price = str(round(price_with_markup, 2)).replace('.', ',')
                         formatted_amount = str(int(converted_balance))
@@ -1200,3 +1193,43 @@ def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
     except Exception as e:
         log(f"Ошибка при обновлении лотов: {str(e)}", lvl="error")
         logger.error("TRACEBACK", exc_info=True)
+
+
+def _handle_moneyback_steam(c, e):
+    """Обработчик команды !возврат"""
+    try:
+        state = states.get(e.message.author)
+        if not state:
+            print("DEBUG: No state found for user")
+            c.send_message(e.message.chat_id, "❌ Нет активных заказов для возврата.")
+            return
+            
+        order_id = state['data'].get('order_id')
+        if not order_id:
+            print("DEBUG: No order_id found in state")
+            c.send_message(e.message.chat_id, "❌ Нет активных заказов для возврата.")
+            return
+            
+        order = orders.get(order_id)
+        if not order:
+            print(f"DEBUG: No order found with id {order_id}")
+            c.send_message(e.message.chat_id, "❌ Заказ не найден.")
+            return
+            
+        if c.account.get_order(order_id).status in (OrderStatuses.CLOSED, OrderStatuses.REFUNDED):
+            print(f"DEBUG: Order {order_id} is already closed or refunded")
+            c.send_message(order.chat, f"Заказ #{order.id} уже завершён")
+            states.clear(order.buyer)
+            return
+            
+        print(f"DEBUG: Processing refund for order {order_id}")
+        c.account.refund(order.id)
+        log(f"Покупатель {order.buyer} запросил возврат заказа #{order.id}. Статус заказа был: {order.status}. Деньги вернул, статс изменил на {Os.WAIT_LOGIN}")
+        order.edit(status=Os.WAIT_LOGIN)
+        _handle_next_order(c, e.message.author)
+        
+    except Exception as ex:
+        print(f"DEBUG: Error in _handle_moneyback_steam: {str(ex)}")
+        logger.error(f"Ошибка при обработке команды возврата: {str(ex)}")
+        logger.debug("TRACEBACK", exc_info=True)
+        c.send_message(e.message.chat_id, "❌ Произошла ошибка при обработке команды возврата. Попробуйте позже.")
