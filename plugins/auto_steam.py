@@ -524,6 +524,41 @@ def _switch_state_lot(cardinal, lot_id, active=0):
         return 0
 
 
+def _get_steam_lots(cardinal: 'Cardinal') -> dict:
+    """Получает список лотов пополнения Steam с их валютами"""
+    try:
+        html = bs(cardinal.account.method("get", "/lots/1086/trade", {}, {}, raise_not_200=True).text, "html.parser")
+        lots = {}
+        
+        # Ищем все лоты в категории Steam
+        lot_elements = html.find_all('a', {"class": ["tc-item", "tc-item warning"]})
+        
+        for lot in lot_elements:
+            try:
+                offer_id = int(lot.get('data-offer'))
+                title = lot.find('div', {"class": "tc-desc-text"}).text.strip().lower()
+                
+                # Определяем валюту по описанию
+                currency = None
+                if 'тенге' in title or 'kzt' in title:
+                    currency = 'kzt'
+                elif 'руб' in title or 'rub' in title:
+                    currency = 'rub'
+                elif 'грн' in title or 'uah' in title:
+                    currency = 'uah'
+                
+                if currency:
+                    lots[currency] = offer_id
+            except Exception as e:
+                log(f"Ошибка при парсинге лота: {str(e)}", lvl="error")
+                continue
+                
+        return lots
+    except Exception as e:
+        log(f"Ошибка при получении лотов: {str(e)}", lvl="error")
+        return {}
+
+
 def init(cardinal: 'Cardinal'):
     global notifications, tg_logs, api
 
@@ -535,6 +570,7 @@ def init(cardinal: 'Cardinal'):
 
     cardinal.add_telegram_commands(UUID, [
         ("otpravka", "создать заказ на пополнение Steam", True),
+        ("lots", "показать мои лоты пополнения Steam", True),
     ])
 
     def send(chat_id, msg, reply_markup=None, **kwargs):
@@ -599,7 +635,7 @@ def init(cardinal: 'Cardinal'):
         try:
             state = tg.get_state(m.chat.id, m.from_user.id)
             if not state or state["state"] != "waiting_amount":
-                print(f"DEBUG: Invalid state for user {m.from_user.username}")
+                print(f"DEBUG: Invalid state for user {m.from_user.id}")
                 return
             
             login = state["data"]["login"]
@@ -632,34 +668,46 @@ def init(cardinal: 'Cardinal'):
                 print(f"DEBUG: Top-up successful - Operation: {operation}")
                 
                 # Create order record with CLOSED status
+                buyer_id = str(m.from_user.id)  # Use user ID as fallback
+                if m.from_user.username:
+                    buyer_id = m.from_user.username
+                    
                 order = Order(
                     id=f"TG_{int(time.time())}",
                     chat=m.chat.id,
-                    buyer=m.from_user.username or str(m.from_user.id),
+                    buyer=buyer_id,
                     amount=amount,
                     login=login,
                     status=Os.CLOSED,
                     currency=currency
                 )
                 orders.add(order)
+
+                # Update lots after successful payment
+                update_lots_topup(cardinal, currency, amount)
                 
                 # Send success message
                 success_msg = f"✅ Средства успешно отправлены!\n\n"
                 success_msg += f"∟ Логин Steam: {login}\n"
                 success_msg += f"∟ Сумма пополнения: {amount} {currency}\n\n"
                 success_msg += f"❤️ Спасибо за покупку!"
+                
                 bot.send_message(m.chat.id, success_msg)
                 
                 # Clear state
-                states.clear(m.from_user.username)
+                states.clear(buyer_id)
                 
             except NoFoundLogin as e:
                 print(f"DEBUG: Login not found: {str(e)}")
                 # Create order record with ERROR status to allow refund
+                buyer_id = str(m.from_user.id)  # Use user ID as fallback
+                if m.from_user.username:
+                    buyer_id = m.from_user.username
+                    
                 order = Order(
                     id=f"TG_{int(time.time())}",
                     chat=m.chat.id,
-                    buyer=m.from_user.username or str(m.from_user.id),
+                    buyer=buyer_id,
                     amount=amount,
                     login=login,
                     status=Os.ERROR,
@@ -690,7 +738,10 @@ def init(cardinal: 'Cardinal'):
             print(f"DEBUG: Unexpected error: {str(e)}")
             logger.error(f"Ошибка при обработке команды отправака: {str(e)}")
             logger.debug("TRACEBACK", exc_info=True)
-            bot.send_message(m.chat.id, "❌ Произошла ошибка при обработке команды. Попробуйте позже.")
+            error_msg = "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+            if isinstance(e, str):
+                error_msg = f"❌ Ошибка: {e}"
+            bot.send_message(m.chat.id, error_msg)
 
     tg.msg_handler(handle_otpravka, commands=['otpravka'])
     tg.msg_handler(handle_otpravka_login, func=lambda m: tg.check_state(m.chat.id, m.from_user.id, "waiting_login"))
@@ -793,6 +844,23 @@ def init(cardinal: 'Cardinal'):
                                "Отправь мне процент обсчета. Меньше 0, "
                                "если кидать меньше на указанный процент, больше 0, если кидать больше", cb=c)
 
+    def handle_lots(m: Message):
+        """Обработчик команды /lots"""
+        try:
+            lots = _get_steam_lots(cardinal)
+            if not lots:
+                return bot.send_message(m.chat.id, "❌ Не удалось найти лоты пополнения Steam")
+                
+            message = "🔵 <b>Мои лоты пополнения Steam:</b>\n\n"
+            for currency, offer_id in lots.items():
+                message += f"∟ {currency.upper()}: <code>{offer_id}</code>\n"
+                message += f"   <a href='https://funpay.com/lots/offerEdit?node=1086&offer={offer_id}'>Редактировать</a>\n\n"
+                
+            bot.send_message(m.chat.id, message)
+        except Exception as e:
+            log(f"Ошибка при обработке команды /lots: {str(e)}", lvl="error")
+            bot.send_message(m.chat.id, "❌ Произошла ошибка при получении лотов")
+
     tg.cbq_handler(open_menu, lambda c: c.data.startswith(_CBT.SETTINGS_PLUGIN))
     tg.cbq_handler(toggle_notifications, lambda c: c.data.startswith(f"{_CBT.TOGGLE_NOTIFICATIONS}:"))
     tg.cbq_handler(notifications_menu, lambda c: c.data == _CBT.NOTIFICATIONS_MENU)
@@ -804,6 +872,7 @@ def init(cardinal: 'Cardinal'):
     tg.cbq_handler(edit_limits, lambda c: c.data.startswith(f"{_CBT.EDIT_LIMITS}:"))
     tg.cbq_handler(handle_no_money_orders, lambda c: c.data.startswith(f"{_CBT.HANDLE_NO_BALANCE_ORDERS}"))
     tg.cbq_handler(edit_obs, lambda c: c.data.startswith(f"{_CBT.EDIT_OBS}"))
+    tg.msg_handler(handle_lots, commands=['lots'])
 
     tg.add_command_to_menu("auto_steam", "Настройки плагина auto-steam")
 
@@ -832,7 +901,10 @@ class States:
 
     def set(self, us, state, data={}): self.storage[us] = {'state': state, 'data': data}; save_states()
 
-    def clear(self, us): del self.storage[us]; save_states()
+    def clear(self, us): 
+        if us in self.storage:
+            del self.storage[us]
+            save_states()
 
     def check(self, us, state): return self.get(us, {}).get('state') in (
         state if isinstance(state, (list, tuple)) else (state,))
@@ -1107,6 +1179,12 @@ def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
             
         log(f"Актуальные курсы: {rate}")
         
+        # Получаем актуальные лоты
+        lots = _get_steam_lots(cardinal)
+        if not lots:
+            log("Ошибка: не удалось получить список лотов", lvl="error")
+            return
+            
         # Обновляем лоты для каждой валюты
         for curr in CURRENCIES:
             try:
@@ -1148,48 +1226,41 @@ def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
                 price_with_markup = price * 1.06
                 log(f"Курс {curr.upper()} к RUB: {price} (с накруткой: {price_with_markup})")
                 
-                # Обновляем лот для текущей валюты
-                offer_id = {
-                    "kzt": 42111224,
-                    "rub": 42163356,
-                    "uah": 41456968
-                }.get(curr.lower())
+                # Получаем ID лота для текущей валюты
+                offer_id = lots.get(curr.lower())
+                if not offer_id:
+                    log(f"Лот для валюты {curr.upper()} не найден", lvl="error")
+                    continue
                 
-                if offer_id:
-                    try:
-                        # Проверяем существование лота перед обновлением
-                        lot_exists = cardinal.account.check_lot_exists(offer_id)
-                        if not lot_exists:
-                            log(f"Лот {offer_id} не найден или недоступен", lvl="error")
-                            continue
-                            
-                        lot_fields = cardinal.account.get_lot_fields(offer_id)
-                        if lot_fields is None:
-                            log(f"Ошибка: не удалось получить поля лота {offer_id}", lvl="error")
-                            continue
-                            
-                        # Форматируем значения перед установкой
-                        formatted_price = str(round(price_with_markup, 2)).replace('.', ',')
-                        formatted_amount = str(int(converted_balance))
-                        
-                        if not hasattr(lot_fields, 'price') or not hasattr(lot_fields, 'amount'):
-                            log(f"Ошибка: лот {offer_id} не имеет необходимых атрибутов", lvl="error")
-                            continue
-                            
-                        lot_fields.price = formatted_price
-                        lot_fields.amount = formatted_amount
-                        
-                        # Сохраняем изменения с обработкой ошибок
-                        try:
-                            cardinal.account.save_lot(lot_fields)
-                            log(f"Обновлен лот {offer_id} для валюты {curr.upper()}")
-                        except Exception as e:
-                            log(f"Ошибка при сохранении лота {offer_id}: {str(e)}", lvl="error")
-                            continue
-                            
-                    except Exception as e:
-                        log(f"Ошибка при обновлении лота {offer_id}: {str(e)}", lvl="error")
+                try:
+                    # Получаем поля лота
+                    lot_fields = cardinal.account.get_lot_fields(offer_id)
+                    if lot_fields is None:
+                        log(f"Ошибка: не удалось получить поля лота {offer_id}", lvl="error")
                         continue
+                        
+                    # Форматируем значения перед установкой
+                    formatted_price = str(round(price_with_markup, 2)).replace('.', ',')
+                    formatted_amount = str(int(converted_balance))
+                    
+                    if not hasattr(lot_fields, 'price') or not hasattr(lot_fields, 'amount'):
+                        log(f"Ошибка: лот {offer_id} не имеет необходимых атрибутов", lvl="error")
+                        continue
+                        
+                    lot_fields.price = formatted_price
+                    lot_fields.amount = formatted_amount
+                    
+                    # Сохраняем изменения с обработкой ошибок
+                    try:
+                        cardinal.account.save_lot(lot_fields)
+                        log(f"Обновлен лот {offer_id} для валюты {curr.upper()}")
+                    except Exception as e:
+                        log(f"Ошибка при сохранении лота {offer_id}: {str(e)}", lvl="error")
+                        continue
+                        
+                except Exception as e:
+                    log(f"Ошибка при обновлении лота {offer_id}: {str(e)}", lvl="error")
+                    continue
                 
             except Exception as e:
                 log(f"Ошибка при обновлении лота для валюты {curr}: {str(e)}", lvl="error")
