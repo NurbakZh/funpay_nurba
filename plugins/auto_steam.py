@@ -527,11 +527,13 @@ def _switch_state_lot(cardinal, lot_id, active=0):
 def _get_steam_lots(cardinal: 'Cardinal') -> dict:
     """Получает список лотов пополнения Steam с их валютами"""
     try:
-        html = bs(cardinal.account.method("get", "/lots/1086/trade", {}, {}, raise_not_200=True).text, "html.parser")
+        html = bs(cardinal.account.method("get", "lots/1086/trade", {}, {}, raise_not_200=True).text, "html.parser")
         lots = {}
         
         # Ищем все лоты в категории Steam
         lot_elements = html.find_all('a', {"class": ["tc-item", "tc-item warning"]})
+
+        print(lot_elements)
         
         for lot in lot_elements:
             try:
