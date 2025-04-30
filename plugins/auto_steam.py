@@ -633,6 +633,8 @@ def init(cardinal: 'Cardinal'):
         bot.edit_message_text("Введите сумму пополнения:", c.message.chat.id, c.message.message_id)
 
     def handle_otpravka_amount(m: Message):
+        if not tg.check_state(m.chat.id, m.from_user.id, "waiting_amount"):
+            return
         print(f"DEBUG: Received amount message: {m.text}")
         try:
             state = tg.get_state(m.chat.id, m.from_user.id)

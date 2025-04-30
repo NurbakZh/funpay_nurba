@@ -337,7 +337,7 @@ def load_parser_config(config_path: str):
     values = {
         "rates": {
             "rub_uah_rate": "any",
-            "rub_usd_rate": "any"
+            "uah_kzt_rate": "any"
         },
         "income": {
             "1_100": "any",
@@ -346,10 +346,6 @@ def load_parser_config(config_path: str):
             "2001_5000": "any",
             "5001_plus": "any"
         },
-        "steam": {
-            "steamLoginSecureUa": "any",
-            "steamLoginSecureUs": "any"
-        }
     }
 
     for section_name in values:

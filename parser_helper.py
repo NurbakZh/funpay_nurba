@@ -244,15 +244,13 @@ def parse_steam_app_page(url, steamLoginSecure = None):
         'цена в гривнах': price
     }
 
-def parse_steam_edition_page(url, steamLoginSecure = None, edition_id = None):
+def parse_steam_edition_page(url, edition_id = None):
     headers = {
         "Accept": "*/*",
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
         "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         "X-requested-with": "XMLHttpRequest",
     }
-    if steamLoginSecure is not None and steamLoginSecure != "None":
-        headers["Cookie"] = f'steamLoginSecure={steamLoginSecure}'
 
     cookies = {
         'Steam_Language': 'uk',
@@ -344,7 +342,7 @@ def calculate_price_in_rubles(price_ua, rate=2.7, income={
     else:
         commission = income["5001_plus"]
 
-    total_price_rub = price_rub + commission
+    total_price_rub = (price_rub + commission)
     return round(total_price_rub, 2)
 
 def check_for_last():
