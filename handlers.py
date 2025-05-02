@@ -1322,23 +1322,27 @@ def handle_new_login(c: Cardinal, e: NewMessageEvent):
             )
             orders.add(order)
             
-            # Send refund confirmation message
-            refund_msg = f"🔄 Выполнен возврат средств\n\n"
-            refund_msg += f"∟ Сумма возврата: {amount_to_topup} {currency}\n"
-            refund_msg += f"∟ ID заказа: {order_id}\n\n"
-            result = c.send_message(e.message.chat_id, refund_msg, e.message.author)
+            from plugins.auto_steam import _handle_moneyback_steam
+            _handle_moneyback_steam(c, e)
+            states.clear(e.message.author)
+            logger.info(f"Запрошен возврат средств для заказа {order_id}")
+            # # Send refund confirmation message
+            # refund_msg = f"🔄 Выполнен возврат средств\n\n"
+            # refund_msg += f"∟ Сумма возврата: {amount_to_topup} {currency}\n"
+            # refund_msg += f"∟ ID заказа: {order_id}\n\n"
+            # result = c.send_message(e.message.chat_id, refund_msg, e.message.author)
             
             
-            if result:
-                logger.info(f"Запрошен возврат средств для заказа {order_id}")
-                # Call _handle_moneyback_steam to process the refund
-                from plugins.auto_steam import _handle_moneyback_steam
-                _handle_moneyback_steam(c, e)
-                # Clear the wait state
-                states.clear(e.message.author)
-            else:
-                logger.error(f"Не удалось отправить сообщение о возврате для заказа {order_id}")
-                raise Exception("Не удалось отправить сообщение пользователю")
+            # if result:
+            #     logger.info(f"Запрошен возврат средств для заказа {order_id}")
+            #     # Call _handle_moneyback_steam to process the refund
+            #     from plugins.auto_steam import _handle_moneyback_steam
+            #     _handle_moneyback_steam(c, e)
+            #     # Clear the wait state
+            #     states.clear(e.message.author)
+            # else:
+            #     logger.error(f"Не удалось отправить сообщение о возврате для заказа {order_id}")
+            #     raise Exception("Не удалось отправить сообщение пользователю")
                 
         except Exception as exc:
             logger.error(f"Произошла ошибка при обработке запроса на возврат для заказа {order_id}: {str(exc)}")

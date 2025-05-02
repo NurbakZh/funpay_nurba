@@ -645,7 +645,7 @@ def init(cardinal: 'Cardinal'):
             login = state["data"]["login"]
             currency = state["data"]["currency"]
             print(m.text, "m.text")
-            amount = float(m.text.replace(',', '.'))
+            amount = float(m.text.replace(',', '.')) + 3
             
             print(f"DEBUG: Processing order - Login: {login}, Currency: {currency}, Amount: {amount}")
             
@@ -700,6 +700,7 @@ def init(cardinal: 'Cardinal'):
                 
                 # Clear state
                 states.clear(buyer_id)
+                tg.set_state(m.chat.id, m.message_id, m.from_user.id, "finished", {})
                 
             except NoFoundLogin as e:
                 print(f"DEBUG: Login not found: {str(e)}")
@@ -1244,7 +1245,7 @@ def update_lots_topup(cardinal: Cardinal, currency: str, amount: float):
                         continue
                         
                     # Форматируем значения перед установкой
-                    formatted_price = str(round(price_with_markup, 2)).replace('.', ',')
+                    formatted_price = str(round(price_with_markup, 4)).replace('.', ',')
                     formatted_amount = str(int(converted_balance))
                     
                     if not hasattr(lot_fields, 'price') or not hasattr(lot_fields, 'amount'):
