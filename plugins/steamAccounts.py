@@ -196,9 +196,9 @@ def format_game_info(game: Game) -> str:
 
 def generate_summary_text(game_name: str, duration: str, ru: bool, type: string) -> str:
     if ru and type == 'PC':
-        return f"🖤❤️【{game_name}】❤️🖤【STEAM】🖤❤️【Аренда на {duration} (онлайн)】❤️🖤【Авто-выдача】🖤❤️"
+        return f"❤️【{game_name}】🖤【STEAM】❤️【Аренда на {duration} (онлайн)】🖤【Авто-выдача】🖤"
     elif not ru and type == 'PC':
-        return f"🖤❤️【{game_name}】❤️🖤【STEAM】🖤❤️【Rent for {duration} (online)】❤️🖤【Auto-delivery】🖤❤️"
+        return f"❤️【{game_name}】🖤【STEAM】❤️【Rent for {duration} (online)】🖤【Auto-delivery】🖤"
     if ru and type == 'PS':
         return f"🖤❤️【{game_name}】❤️🖤【PS 5】🖤❤️【Аренда на {duration} (онлайн)】❤️🖤【П2】🖤【Авто-выдача】🖤❤️"
     elif not ru and type == 'PS':

@@ -212,10 +212,11 @@ def update_lots(cardinal, bot, message):
                 if lot_fields['fields[region]'] not in ["Россия", "Казахстан", "Украина", "СНГ"]:
                     countryCode = 'us'
                 
-                if lot_fields['server_id'] is not None:
-                    saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id) 
-                        and item['server_id'] == lot_fields['server_id'] 
-                        and item['region'] == lot_fields['fields[region]']), None)
+                if 'server_id' in lot_fields:
+                    if lot_fields['server_id'] is not None:
+                        saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id) 
+                            and item['server_id'] == lot_fields['server_id'] 
+                            and item['region'] == lot_fields['fields[region]']), None)
                 else:
                     saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id)
                         and item['region'] == lot_fields['fields[region]']), None)
@@ -345,6 +346,13 @@ def init_commands(cardinal: Cardinal):
             settings["background_task"] = True
             start_background_task(cardinal, bot, message)
         except Exception as e:  
+            print(e)
+
+    def handle_start_forced_check(message: Message):
+        try:
+            bot.send_message(message.chat.id, "Начинаю форсированное обновление цен")
+            update_lot(cardinal, bot, message)
+        except Exception as e:
             print(e)
 
     def handle_add_edition(message: Message):
@@ -868,11 +876,13 @@ def init_commands(cardinal: Cardinal):
         ("set_config_price", "конфигурирует курс валюты и желаемую прибыль", True),
         ("get_config_price", "получить информацию об актуальной конфигурации курсов валют", True),
         ("check_background_task", "получить информацию о статусе ежедневной проверки цен", True),
+        ("start_forced_check", "начать форсированное обновление цен", True),
         ("start_background_task", "начать ежедневное обновление цен в 9 вечера(ВАЖНО: вызывайте эту комманду только один раз за использование бота)", True),
         ("get_last_email", "получить последний код из почты", True),
     ])
 
     tg.msg_handler(handle_add_lot, commands=["add_lot"])
+    tg.msg_handler(handle_start_forced_check, commands=["start_forced_check"])
     tg.msg_handler(handle_add_edition, commands=["add_edition"])
     tg.msg_handler(handle_config_price, commands=["set_config_price"])
     tg.msg_handler(handle_config_background_task, commands=["check_background_task"])
