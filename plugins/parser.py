@@ -351,7 +351,7 @@ def init_commands(cardinal: Cardinal):
     def handle_start_forced_check(message: Message):
         try:
             bot.send_message(message.chat.id, "Начинаю форсированное обновление цен")
-            update_lot(cardinal, bot, message)
+            update_lots(cardinal, bot, message)
         except Exception as e:
             print(e)
 
