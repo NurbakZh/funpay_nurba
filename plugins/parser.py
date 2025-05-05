@@ -645,7 +645,7 @@ def init_commands(cardinal: Cardinal):
                     "auto_delivery": "",
                     "price": price,
                     "amount": "1000",
-                    "fields[game]": funpay_game_name,
+                    "fields[game]": funpay_game_name.replace("®", ""),
                     "fields[platform]": suitable_platform_option["value"],
                     "fields[method]": "Подарком",
                     "fields[desc][ru]": description,
@@ -662,7 +662,7 @@ def init_commands(cardinal: Cardinal):
                 if launcher_s is not None:
                     lot_fields["fields[launcher]"] = launcher_s
                 if price is not None:
-                    save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, suitable_game_option["value"])
+                    save_game_and_lot_names(game_id, funpay_game_name.replace("®", ""), lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, suitable_game_option["value"])
                     lot = FunPayAPI.types.LotFields(0, lot_fields)
                     create_lot(cardinal.account, lot)
                     bot.send_message(message.chat.id, f"Лот для региона {region} создан: Игра: {game_name}, Лот: {lot_name}")
