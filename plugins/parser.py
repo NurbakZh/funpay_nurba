@@ -248,10 +248,31 @@ def update_lots(cardinal, bot, message):
                     else:
                         new_price_rub = game_prices["price_rub_ua"]
 
+                    payment_region = "UAH"
+                    if lot_fields['fields[region]'] == "Казахстан":
+                        if not kz_uah and not kz_rub:
+                            payment_region = "KZT"
+                        elif not kz_uah and kz_rub:
+                            payment_region = "RUB"
+                    elif lot_fields['fields[region]'] == "Россия":
+                        if not ru_uah and not ru_kz:
+                            payment_region = "RUB"
+                        elif not ru_uah and ru_kz:
+                            payment_region = "KZT"
+
+                    payment_msg = (
+        "Валюта отправки – " + payment_region + " (информация для продавца)\n"
+        "Отправьте ссылку на быстрое приглашение в друзья."
+    )   
+                    descr_en = translate_text(description, "en")
+                    payment_en = translate_text(payment_msg, "en")
+
                     if str(new_price_rub) != lot_fields['price']:
                         lot_fields['price'] = str(new_price_rub)
                         lot_fields['active'] = 'on'
                         lot_fields['amount'] = '1000'
+                        lot_fields["fields[payment_msg][ru]"] = payment_msg
+                        lot_fields["fields[payment_msg][en]"] = payment_en
                         lot = FunPayAPI.types.LotFields(parent_id, lot_fields)
                         final_lot_id = lot.lot_id
                         fields = lot.fields
@@ -294,7 +315,7 @@ def update_lots(cardinal, bot, message):
                 logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_id}. Ошибка: {str(e)}")
                 logger.debug("TRACEBACK", exc_info=True)
                 break
-            time.sleep(10)
+            time.sleep(20)
 
 def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
