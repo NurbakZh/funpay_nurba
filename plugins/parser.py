@@ -264,7 +264,6 @@ def update_lots(cardinal, bot, message):
         "Валюта отправки – " + payment_region + " (информация для продавца)\n"
         "Отправьте ссылку на быстрое приглашение в друзья."
     )   
-                    descr_en = translate_text(description, "en")
                     payment_en = translate_text(payment_msg, "en")
 
                     if str(new_price_rub) != lot_fields['price']:
@@ -640,8 +639,8 @@ def init_commands(cardinal: Cardinal):
                     "server_id": suitable_game_option["value"],
                     "location": "",
                     "deleted": "",
-                    "fields[summary][ru]": summary,
-                    "fields[summary][en]": summary_en,
+                    "fields[summary][ru]": summary.replace("®", ""),
+                    "fields[summary][en]": summary_en.replace("®", ""),
                     "auto_delivery": "",
                     "price": price,
                     "amount": "1000",
