@@ -109,7 +109,7 @@ def generate_description_text(region: str, game_name: str) -> str:
         "❗️❗️❗️ Если нужны другие версии игры (или любые другие игры), пишите в личные сообщения! 😁\n\n"
     )
 
-def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, server_id):
+def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, server_id, is_edition):
     try:
         storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
         os.makedirs(storage_dir, exist_ok=True)
@@ -142,7 +142,8 @@ def save_game_and_lot_names(game_id, funpay_game_name, lot_name, node_id, region
                 "ru_uah": ru_uah, 
                 "kz_uah": kz_uah, 
                 "kz_rub": kz_rub,
-                "server_id": server_id
+                "server_id": server_id,
+                "is_edition": is_edition,
             })
 
         with open(file_path, 'w', encoding='utf-8') as file:
@@ -220,7 +221,6 @@ def update_lots(cardinal, bot, message):
                 else:
                     saved_lot = next((item for item in saved_data if item['node_id'] == str(lot_id)
                         and item['region'] == lot_fields['fields[region]']), None)
-                
                 if saved_lot:
                     game_id = saved_lot['game_id']
                     funpay_game_name = saved_lot['funpay_game_name']
@@ -229,7 +229,8 @@ def update_lots(cardinal, bot, message):
                     ru_uah = saved_lot['ru_uah']
                     kz_rub = saved_lot['kz_rub']
                     ru_kz = saved_lot['ru_kz']
-                    game_prices = get_game_prices(game_name = game_id, kz_uah = kz_uah, ru_uah = ru_uah, kz_rub = kz_rub, ru_kz = ru_kz)
+                    is_edition = saved_lot['is_edition']
+                    game_prices = get_game_prices(game_name = game_id, is_edition=is_edition, kz_uah = kz_uah, ru_uah = ru_uah, kz_rub = kz_rub, ru_kz = ru_kz)
                     price_for_russia = game_prices["price_rub_ua"] if game_prices["price_ru"] == "error" else game_prices["price_ru"]
                     price_for_kazakhstan = game_prices["price_rub_kz"]
                 
@@ -661,7 +662,7 @@ def init_commands(cardinal: Cardinal):
                 if launcher_s is not None:
                     lot_fields["fields[launcher]"] = launcher_s
                 if price is not None:
-                    save_game_and_lot_names(game_id, funpay_game_name.replace("®", "").replace("™", ""), lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, suitable_game_option["value"])
+                    save_game_and_lot_names(game_id, funpay_game_name.replace("®", "").replace("™", ""), lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, suitable_game_option["value"], is_edition)
                     lot = FunPayAPI.types.LotFields(0, lot_fields)
                     create_lot(cardinal.account, lot)
                     bot.send_message(message.chat.id, f"Лот для региона {region} создан: Игра: {game_name}, Лот: {lot_name}")
