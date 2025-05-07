@@ -244,7 +244,10 @@ def parse_steam_app_page(url, steamLoginSecure = None):
         'цена в гривнах': price
     }
 
-def parse_steam_edition_page(url, edition_id = None):
+def parse_steam_edition_page(url, edition_id=None):
+    import requests
+    from bs4 import BeautifulSoup
+
     headers = {
         "Accept": "*/*",
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
@@ -257,6 +260,7 @@ def parse_steam_edition_page(url, edition_id = None):
         'birthtime': '568022401',
         'lastagecheckage': '1-0-1990'
     }
+
     response = requests.get(url, headers=headers, cookies=cookies)
     if response.status_code != 200:
         print(f"Failed to retrieve the page. Status code: {response.status_code}")
@@ -268,40 +272,43 @@ def parse_steam_edition_page(url, edition_id = None):
 
     purchase_game_wrappers = soup.find_all('div', class_='game_area_purchase_game_wrapper')
     found_edition = False
-        
+
+    def extract_info(wrapper):
+        title = wrapper.find('h1')
+        name = ''.join(title.find_all(text=True, recursive=False)).strip() if title else None
+
+        price_div = wrapper.find('div', class_='game_purchase_price')
+        if not price_div:
+            price_div = wrapper.find('div', class_='discount_final_price')
+
+        cost = price_div.text.strip() if price_div else None
+        return name, cost
+
+    # Первый проход — точное совпадение с edition_id
     for wrapper in purchase_game_wrappers:
         edition_title = wrapper.find('h1')
         if edition_title and edition_id:
-            # Get raw text content ignoring any child elements
             title_text = ''.join(edition_title.find_all(text=True, recursive=False)).strip()
             if edition_id.lower() in title_text.lower():
-                # Found the correct edition wrapper
-                app_name = title_text
-                # Try to find price within this wrapper
-                price_div = wrapper.find('div', class_='game_purchase_price')
-                if not price_div:
-                    price_div = wrapper.find('div', class_='discount_final_price')
-                
-                if price_div:
-                    price = price_div.text.strip()
+                app_name, price = extract_info(wrapper)
                 found_edition = True
                 break
-    
 
+    # Второй проход — если не нашли, ищем по слову "издание"
+    if not found_edition and edition_id:
+        for wrapper in purchase_game_wrappers:
+            edition_title = wrapper.find('h1')
+            if edition_title:
+                title_text = ''.join(edition_title.find_all(text=True, recursive=False)).strip()
+                if 'издание' in title_text.lower():
+                    app_name, price = extract_info(wrapper)
+                    found_edition = True
+                    break
+
+    # Если всё ещё не нашли — берём первый попавшийся вариант
     if not found_edition and purchase_game_wrappers:
-        first_wrapper = purchase_game_wrappers[0]
-        edition_title = first_wrapper.find('h1')
-        if edition_title:
-            # Get raw text content ignoring any child elements
-            app_name = ''.join(edition_title.find_all(text=True, recursive=False)).strip()
-            
-        price_div = first_wrapper.find('div', class_='game_purchase_price')
-        if not price_div:
-            price_div = first_wrapper.find('div', class_='discount_final_price')
-        
-        if price_div:
-            price = price_div.text.strip()
-    
+        app_name, price = extract_info(purchase_game_wrappers[0])
+
     if not app_name:
         app_wrapper = soup.find('div', class_='apphub_AppName')
         if app_wrapper:
@@ -311,6 +318,7 @@ def parse_steam_edition_page(url, edition_id = None):
         'название': app_name,
         'цена в гривнах': price
     }
+
 
 
 def calculate_price_in_rubles(price_ua, rate=2.7, income={

@@ -639,12 +639,12 @@ def init_commands(cardinal: Cardinal):
                     "server_id": suitable_game_option["value"],
                     "location": "",
                     "deleted": "",
-                    "fields[summary][ru]": summary.replace("®", ""),
-                    "fields[summary][en]": summary_en.replace("®", ""),
+                    "fields[summary][ru]": summary.replace("®", "").replace("™", ""),
+                    "fields[summary][en]": summary_en.replace("®", "").replace("™", ""),
                     "auto_delivery": "",
                     "price": price,
                     "amount": "1000",
-                    "fields[game]": funpay_game_name.replace("®", ""),
+                    "fields[game]": funpay_game_name.replace("®", "").replace("™", ""),
                     "fields[platform]": suitable_platform_option["value"],
                     "fields[method]": "Подарком",
                     "fields[desc][ru]": description,
@@ -661,7 +661,7 @@ def init_commands(cardinal: Cardinal):
                 if launcher_s is not None:
                     lot_fields["fields[launcher]"] = launcher_s
                 if price is not None:
-                    save_game_and_lot_names(game_id, funpay_game_name.replace("®", ""), lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, suitable_game_option["value"])
+                    save_game_and_lot_names(game_id, funpay_game_name.replace("®", "").replace("™", ""), lot_name, node_id, region, price, kz_uah, kz_rub, ru_uah, ru_kz, suitable_game_option["value"])
                     lot = FunPayAPI.types.LotFields(0, lot_fields)
                     create_lot(cardinal.account, lot)
                     bot.send_message(message.chat.id, f"Лот для региона {region} создан: Игра: {game_name}, Лот: {lot_name}")
