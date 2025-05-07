@@ -244,13 +244,13 @@ def parse_steam_app_page(url, steamLoginSecure = None):
         'цена в гривнах': price
     }
 
-def parse_steam_edition_page(url, edition_id=None):
-    import requests
-    from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup
+import requests
 
+def parse_steam_edition_page(url, edition_id=None):
     headers = {
         "Accept": "*/*",
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        'User-Agent': 'Mozilla/5.0',
         "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         "X-requested-with": "XMLHttpRequest",
     }
@@ -270,53 +270,53 @@ def parse_steam_edition_page(url, edition_id=None):
     app_name = None
     price = None
 
-    purchase_game_wrappers = soup.find_all('div', class_='game_area_purchase_game_wrapper')
-    found_edition = False
+    wrappers = soup.find_all('div', class_='game_area_purchase_game_wrapper')
+    matched = None
 
-    def extract_info(wrapper):
-        title = wrapper.find('h1')
-        name = ''.join(title.find_all(text=True, recursive=False)).strip() if title else None
+    def normalize_text(t):
+        return t.replace('«', '').replace('»', '').replace('™', '').replace('—', '-').strip().lower()
 
-        price_div = wrapper.find('div', class_='game_purchase_price')
-        if not price_div:
-            price_div = wrapper.find('div', class_='discount_final_price')
-
-        cost = price_div.text.strip() if price_div else None
-        return name, cost
-
-    # Первый проход — точное совпадение с edition_id
-    for wrapper in purchase_game_wrappers:
-        edition_title = wrapper.find('h1')
-        if edition_title and edition_id:
-            title_text = ''.join(edition_title.find_all(text=True, recursive=False)).strip()
-            if edition_id.lower() in title_text.lower():
-                app_name, price = extract_info(wrapper)
-                found_edition = True
-                break
-
-    # Второй проход — если не нашли, ищем по слову "издание"
-    if not found_edition and edition_id:
-        for wrapper in purchase_game_wrappers:
-            edition_title = wrapper.find('h1')
-            if edition_title:
-                title_text = ''.join(edition_title.find_all(text=True, recursive=False)).strip()
-                if 'издание' in title_text.lower():
-                    app_name, price = extract_info(wrapper)
-                    found_edition = True
+    # 1. Поиск по edition_id (например, "deluxe")
+    if edition_id:
+        for wrapper in wrappers:
+            h1 = wrapper.find('h1')
+            if h1:
+                text = normalize_text(h1.get_text())
+                if edition_id.lower() in text:
+                    matched = wrapper
                     break
 
-    # Если всё ещё не нашли — берём первый попавшийся вариант
-    if not found_edition and purchase_game_wrappers:
-        app_name, price = extract_info(purchase_game_wrappers[0])
+    # 2. Если не нашли — ищем по слову "издание"
+    if not matched:
+        for wrapper in wrappers:
+            h1 = wrapper.find('h1')
+            if h1:
+                text = normalize_text(h1.get_text())
+                if "издание" in text:
+                    matched = wrapper
+                    break
 
-    if not app_name:
-        app_wrapper = soup.find('div', class_='apphub_AppName')
-        if app_wrapper:
-            app_name = ''.join(app_wrapper.find_all(text=True, recursive=False)).strip()
+    # 3. Если не нашли — берём первый
+    if not matched and wrappers:
+        matched = wrappers[0]
+
+    # Извлекаем данные
+    if matched:
+        h1 = matched.find('h1')
+        app_name = h1.get_text(strip=True) if h1 else None
+
+        price_div = matched.find('div', class_='discount_final_price')
+        if not price_div:
+            price_div = matched.find('div', class_='game_purchase_price')
+
+        price = price_div.get_text(strip=True) if price_div else None
+    else:
+        app_tag = soup.find('div', class_='apphub_AppName')
+        app_name = app_tag.get_text(strip=True) if app_tag else None
 
     return {
         'название': app_name,
-        'цена в гривнах': price
+        'цена в тенге': price
     }
 
 
