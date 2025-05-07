@@ -293,6 +293,7 @@ def parse_steam_edition_page(url, edition_id=None):
             if h1:
                 text = normalize_text(h1.get_text())
                 if "издание" in text:
+                    print('here')
                     matched = wrapper
                     break
 
@@ -308,7 +309,6 @@ def parse_steam_edition_page(url, edition_id=None):
         price_div = matched.find('div', class_='discount_final_price')
         if not price_div:
             price_div = matched.find('div', class_='game_purchase_price')
-
         price = price_div.get_text(strip=True) if price_div else None
     else:
         app_tag = soup.find('div', class_='apphub_AppName')
@@ -316,7 +316,7 @@ def parse_steam_edition_page(url, edition_id=None):
 
     return {
         'название': app_name,
-        'цена в тенге': price
+        'цена в гривнах': price
     }
 
 
