@@ -230,7 +230,10 @@ def update_lots(cardinal, bot, message):
                     kz_rub = saved_lot['kz_rub']
                     ru_kz = saved_lot['ru_kz']
                     is_edition = saved_lot['is_edition']
-                    game_prices = get_game_prices(game_name = game_id, is_edition=is_edition, kz_uah = kz_uah, ru_uah = ru_uah, kz_rub = kz_rub, ru_kz = ru_kz)
+                    if is_edition:
+                        game_prices = get_game_prices(game_name = game_id, edition_id = funpay_game_name, kz_uah = kz_uah, ru_uah = ru_uah, kz_rub = kz_rub, ru_kz = ru_kz)
+                    else:
+                        game_prices = get_game_prices(game_name = game_id, kz_uah = kz_uah, ru_uah = ru_uah, kz_rub = kz_rub, ru_kz = ru_kz)
                     price_for_russia = game_prices["price_rub_ua"] if game_prices["price_ru"] == "error" else game_prices["price_ru"]
                     price_for_kazakhstan = game_prices["price_rub_kz"]
                 
