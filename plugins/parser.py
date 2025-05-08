@@ -204,7 +204,7 @@ def update_lots(cardinal, bot, message):
                 
                 # Если этот лот уже был обработан, пропускаем его
                 if lot_key in processed_lots:
-                    logger.info(f"[LOTS UPDATE] Пропускаю уже обработанный лот {lot_id} для региона {lot_fields.get('fields[region]', '')}")
+                    logger.info(f"[LOTS UPDATE] Пропускаю уже обработанный лот {lot_key} для региона {lot_fields.get('fields[region]', '')}")
                     break
                 
                 # Добавляем в множество обработанных лотов
