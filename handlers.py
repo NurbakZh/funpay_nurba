@@ -933,7 +933,9 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
             steam_login = e.order.description.split(',')[3]
             
             # Convert amount to USD if needed
-            amount_to_topup = float(amount_requested.strip().replace(' шт.', '').split(' ')[0])
+# Удалить все пробелы внутри числа
+            amount_str = amount_requested.strip().replace(' шт.', '').replace(' ', '')
+            amount_to_topup = float(amount_str)
             if currency.strip().upper() != "USD":
                 exchange_rate = api.course(currency.strip(), "USD")
                 if exchange_rate:
@@ -943,7 +945,7 @@ def deliver_goods(c: Cardinal, e: NewOrderEvent, *args):
                     logger.error(f"Не удалось получить курс обмена {currency} -> USD")
                     raise Exception(f"Не удалось получить курс обмена {currency} -> USD")
             
-            # Apply markup
+            # Apply marku
             amount_with_markup = amount_to_topup + (amount_to_topup * (SETTINGS.obschet / 100))
             logger.info(f"Создаем заказ на пополнение {steam_login} на сумму {amount_with_markup} USD")
             
