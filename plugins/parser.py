@@ -207,8 +207,6 @@ def update_lots(cardinal, bot, message):
                     logger.info(f"[LOTS UPDATE] Пропускаю уже обработанный лот {lot_key} для региона {lot_fields.get('fields[region]', '')}")
                     break
                 
-                # Добавляем в множество обработанных лотов
-                processed_lots.add(lot_key)
                 
                 countryCode = 'ua'
                 if lot_fields['fields[region]'] not in ["Россия", "Казахстан", "Украина", "СНГ"]:
@@ -297,6 +295,8 @@ def update_lots(cardinal, bot, message):
                                 json.dump(saved_data, file, ensure_ascii=False, indent=4)
                                 
                             bot.send_message(message.chat.id, f"Лот для региона {lot_fields['fields[region]']} **обновлен**: Игра: {funpay_game_name}, Лот: {lot_name}", parse_mode='Markdown')
+                            # Добавляем в множество обработанных лотов
+                            processed_lots.add(lot_key)
                         except Exception as e:
                             print(e)
                             logger.error(f"[LOTS COPY] Не удалось изменить лот {parent_id} для региона {lot_fields['fields[region]']}.")
