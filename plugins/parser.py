@@ -177,6 +177,7 @@ def update_lots(cardinal, bot, message):
     lots = profile.get_lots()
     all_lots_ids = []
     for lot in lots:
+        time.sleep(20)
         lots_ids = get_children_ids(lot)
         all_lots_ids.extend(lots_ids)
 
@@ -196,6 +197,7 @@ def update_lots(cardinal, bot, message):
         attempts = 15
         lot_key = f"{lot_id}_{parent_id}"
         while attempts > 0:
+            time.sleep(20)
             try:
                 lot_fields = cardinal.account.get_lots_field(lot_id, parent_id)
                 
@@ -318,7 +320,6 @@ def update_lots(cardinal, bot, message):
                 logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_key}. Ошибка: необычная. {str(e)}")
                 logger.debug("TRACEBACK", exc_info=True)
                 break
-            time.sleep(20)
 
 def schedule_task(cardinal, bot, message):
     moscow_tz = pytz.timezone('Europe/Moscow')
