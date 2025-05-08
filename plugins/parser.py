@@ -314,14 +314,9 @@ def update_lots(cardinal, bot, message):
                     logger.debug("TRACEBACK", exc_info=True)
                     break
             except Exception as e:
-                if e.response.status_code == 429:
-                    logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_key}. Ошибка: 429")
-                    logger.debug("TRACEBACK", exc_info=True)
-                    break
-                else:
-                    logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_key}. Ошибка: необычная")
-                    logger.debug("TRACEBACK", exc_info=True)
-                    break
+                logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_key}. Ошибка: необычная. {str(e)}")
+                logger.debug("TRACEBACK", exc_info=True)
+                break
             time.sleep(20)
 
 def schedule_task(cardinal, bot, message):
