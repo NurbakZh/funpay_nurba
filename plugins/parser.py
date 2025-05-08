@@ -189,6 +189,7 @@ def update_lots(cardinal, bot, message):
     else:
         saved_data = []
     
+    print(saved_data)
     # Создаем уникальный ключ для каждого лота, чтобы избежать дублирования
     processed_lots = set()
     
