@@ -310,7 +310,7 @@ def update_lots(cardinal, bot, message):
                     attempts -= 1
                     time.sleep(300)  # Ждем 5 минут перед следующей попыткой
                 else:
-                    logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_id}. Ошибка: {str(e)}")
+                    logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_key}. Ошибка: 429")
                     logger.debug("TRACEBACK", exc_info=True)
                     break
             except Exception as e:
