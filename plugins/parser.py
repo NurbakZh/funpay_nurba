@@ -199,7 +199,7 @@ def update_lots(cardinal, bot, message):
                 lot_fields = cardinal.account.get_lots_field(lot_id, parent_id)
                 
                 # Создаем уникальный ключ для лота на основе lot_id и region
-                lot_key = f"{lot_id}_{lot_fields.get('fields[region]', '')}"
+                lot_key = f"{lot_id}_{lot_fields.get('fields[region]', '')}_is_edition_{is_edition}"
                 
                 # Если этот лот уже был обработан, пропускаем его
                 if lot_key in processed_lots:
