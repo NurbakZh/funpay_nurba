@@ -177,8 +177,9 @@ def update_lots(cardinal, bot, message):
     lots = profile.get_lots()
     all_lots_ids = []
     for lot in lots:
-        time.sleep(20)
+        time.sleep(2)
         lots_ids = get_children_ids(lot)
+        print(lots_ids)
         all_lots_ids.extend(lots_ids)
 
     storage_dir = os.path.join(os.path.dirname(__file__), '../storage/plugins')
@@ -197,7 +198,7 @@ def update_lots(cardinal, bot, message):
         attempts = 15
         lot_key = f"{lot_id}_{parent_id}"
         while attempts > 0:
-            time.sleep(20)
+            time.sleep(15)
             try:
                 lot_fields = cardinal.account.get_lots_field(lot_id, parent_id)
                 
