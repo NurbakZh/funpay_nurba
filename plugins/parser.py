@@ -206,7 +206,6 @@ def update_lots(cardinal, bot, message):
                     logger.info(f"[LOTS UPDATE] Пропускаю уже обработанный лот {lot_key} для региона {lot_fields.get('fields[region]', '')}")
                     break
                 
-                
                 countryCode = 'ua'
                 if lot_fields['fields[region]'] not in ["Россия", "Казахстан", "Украина", "СНГ"]:
                     countryCode = 'us'
@@ -315,8 +314,9 @@ def update_lots(cardinal, bot, message):
                     logger.debug("TRACEBACK", exc_info=True)
                     break
             except Exception as e:
-                logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_id}. Ошибка: {str(e)}")
-                logger.debug("TRACEBACK", exc_info=True)
+                if (e.response.status_code === 429):
+                    logger.error(f"[LOTS UPDATE] Не удалось обработать лот {lot_key}. Ошибка: 429")
+                    logger.debug("TRACEBACK", exc_info=True)
                 break
             time.sleep(20)
 
